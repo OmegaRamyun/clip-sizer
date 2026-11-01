@@ -39,13 +39,20 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
 .overlay:not(.cropped):not(.editing) .cropbox{display:none}
 .handle{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;background:var(--accent);border:2px solid #171323;border-radius:4px;display:none}
 .overlay.editing .handle{display:block}
+.checks{display:grid;gap:6px}
+.check{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;margin:0;background:#141824;border-radius:10px;color:#f5f6fb;cursor:pointer}
+.check input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--accent)}
+.check span{min-width:0;overflow-wrap:anywhere;font-size:.92rem;line-height:1.3}
+.aspect{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#outSummary{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:.85rem;line-height:1.45}
+#outSummary li{margin:4px 0;overflow-wrap:anywhere}#outSummary .over{color:#f5c979}
 .h-nw{left:0;top:0}.h-ne{left:100%;top:0}.h-sw{left:0;top:100%}.h-se{left:100%;top:100%}
 </style>
 </head>
 <body>
 <main>
   <h1>Clip Sizer</h1>
-  <p>Make upload-friendly copies for Discord and 4chan. Video is processed locally in your browser.</p>
+  <p>Make upload-friendly copies for Discord, 4chan, X, Instagram, TikTok and YouTube Shorts. Video is processed locally in your browser.</p>
   <section class="panel">
     <label for="video">Choose a video</label>
     <input id="video" type="file" accept="video/*">
@@ -79,6 +86,13 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
       <button type="button" class="secondary" id="setEnd">End = playhead</button>
       <button type="button" class="secondary" id="resetTrim">Whole video</button>
     </div>
+    <div class="row" id="quickLengths">
+      <button type="button" class="secondary" data-len="30">30s</button>
+      <button type="button" class="secondary" data-len="60">1m</button>
+      <button type="button" class="secondary" data-len="120">2m</button>
+    </div>
+    <p class="note" id="quickNote" hidden></p>
+    <p class="note">Quick lengths set the end to start + length. 30s, 1m and 2m are the safe lengths: all three fit every output here, including X's 2:20 limit.</p>
     <p class="err" id="trimError" hidden></p>
     <label>Crop box (source pixels)</label>
     <div class="fields4">
@@ -98,17 +112,30 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
     <input id="mode" type="range" min="0" max="2" step="1" value="1" aria-label="Quality / resolution tradeoff" list="modeStops">
     <datalist id="modeStops"><option value="0"></option><option value="1"></option><option value="2"></option></datalist>
     <div class="stops" id="modeButtons"></div>
-    <p class="note">Only changes the frame size each bitrate gets. Size targets and bitrates stay the same.</p>
+    <p class="note">Only changes the frame size each bitrate gets. Size targets and bitrates stay the same. Affects Discord and 4chan only: X, Instagram, TikTok and YouTube Shorts use fixed frames and bitrates, so their estimates do not move with this slider.</p>
     <p class="note" id="estimates"></p>
+  </section>
+  <section class="panel" id="outputs">
+    <h2>Outputs</h2>
+    <div class="checks" id="outChecks"></div>
+    <label>Shape for X, Instagram, TikTok and Shorts</label>
+    <div class="aspect" role="radiogroup" aria-label="Aspect mode for social outputs">
+      <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
+      <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
+    </div>
+    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note err" id="outMsg" hidden></p>
+    <ul id="outSummary" hidden></ul>
+    <p class="note warn" id="lengthWarn" hidden></p>
   </section>
   <section class="panel">
     <div class="actions">
-      <button id="go" disabled>Go — make both versions</button>
+      <button id="go" disabled>Go</button>
       <button id="install" class="secondary" hidden>Install app</button>
     </div>
     <div class="progress"><div class="bar" id="bar"></div></div>
     <div id="status">Select a video to begin.</div>
-    <p class="note warn">Encoding can take several minutes and may use substantial memory. Both files are encoded in two passes for better quality, so it takes about twice as long as a single pass. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
+    <p class="note warn">Encoding can take several minutes and may use substantial memory. Files are made one at a time. Discord and 4chan are encoded in two passes for accurate sizes (about twice as long as one pass); the social outputs are single-pass. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
   </section>
   <section class="panel" id="results" hidden>
     <h2>Finished files</h2>
@@ -176,8 +203,107 @@ function estimate() {
   const [cw,ch]=dimensionsFor(chanVideo,fw,fh,720,mode.thresholdScale);
   $('trimmed').textContent=`${fmtTrim(segDuration())} (${segDuration().toFixed(1)} s)`;
   $('cropstat').textContent=c?`${c.w} × ${c.h} at ${c.x},${c.y}`:'Full frame';
-  $('estimates').textContent=`Mode: ${mode.label} — Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio. 4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio. Segment ${fmtTrim(trim.start)}–${fmtTrim(trim.end)} (${segDuration().toFixed(1)} s)`+(c?`, cropped to ${c.w}×${c.h}.`:', full frame.');
-  return {discordVideo,discordAudio,chanVideo,dw,dh,cw,ch,crop:c};
+  const r={discordVideo,discordAudio,chanVideo,dw,dh,cw,ch,crop:c};
+  renderOutputs(r);
+  const parts=[];
+  if($('out-discord')?.checked)parts.push(`Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio.`);
+  if($('out-chan')?.checked)parts.push(`4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio.`);
+  parts.push(`Segment ${fmtTrim(trim.start)}–${fmtTrim(trim.end)} (${segDuration().toFixed(1)} s)`+(c?`, cropped to ${c.w}×${c.h}.`:', full frame.'));
+  $('estimates').textContent=`Mode: ${mode.label} — `+parts.join(' ');
+  return r;
+}
+
+// ---- Outputs (batch) ----
+// Social specs as of Nov 2026 (see README). Social outputs are NOT size-budgeted: fixed
+// frame + bitrate, real size reported afterwards. maxLen is the free-tier length limit.
+const OUTPUTS=[
+  {id:'discord',name:'Discord',budget:true,desc:'MP4 + audio, 19 MB target, any length',on:true},
+  {id:'chan',name:'4chan',budget:true,desc:'WebM, silent, 3.8 MB target, any length',on:true},
+  {id:'twitter',name:'X / Twitter',file:'Twitter',maxLen:140,desc:'16:9, 1:1 or 9:16 (nearest), up to 1080p, up to 2:20'},
+  {id:'instagram',name:'Instagram (Reels)',file:'Instagram',maxLen:180,reach:true,desc:'9:16, 1080x1920, up to 3:00 for reach'},
+  {id:'tiktok',name:'TikTok',file:'TikTok',maxLen:600,desc:'9:16, 1080x1920, up to 10:00'},
+  {id:'shorts',name:'YouTube Shorts',file:'Shorts',maxLen:180,desc:'9:16, 1080x1920, up to 3:00'},
+];
+const SOCIAL_AUDIO_KBPS=128;
+for(const o of OUTPUTS){
+  const l=document.createElement('label');l.className='check';
+  const i=document.createElement('input');i.type='checkbox';i.id='out-'+o.id;i.value=o.id;i.checked=!!o.on;
+  const sp=document.createElement('span');sp.innerHTML=`<b></b> — `;sp.firstChild.textContent=o.name;sp.append(o.desc);
+  l.append(i,sp);$('outChecks').appendChild(l);
+  i.addEventListener('change',()=>{updateGo();if(duration)estimate()});
+}
+for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
+const checkedOutputs=()=>OUTPUTS.filter(o=>$('out-'+o.id).checked);
+const aspectMode=()=>document.querySelector('input[name=aspect]:checked')?.value==='fill'?'fill':'fit';
+const evenRound=n=>Math.max(2,Math.round(n/2)*2);
+// X accepts 16:9, 1:1 and 9:16: pick the nearest (log-ratio distance) to the cropped source.
+const X_SHAPES=[{name:'16:9',a:16/9,hi:[1920,1080],lo:[1280,720]},{name:'1:1',a:1,hi:[1080,1080],lo:[720,720]},{name:'9:16',a:9/16,hi:[1080,1920],lo:[720,1280]}];
+function socialTarget(o){
+  if(o.id!=='twitter')return {w:1080,h:1920,shape:'9:16',kbps:10000};
+  const [fw,fh]=frameSize(), a=fw/fh;
+  const sh=X_SHAPES.reduce((b,x)=>Math.abs(Math.log(a/x.a))<Math.abs(Math.log(a/b.a))?x:b);
+  // 1080p tier (8 Mbps) when the source's short side is above 720, else 720p tier (5 Mbps).
+  const hi=Math.min(fw,fh)>720, [w,h]=hi?sh.hi:sh.lo;
+  return {w,h,shape:sh.name,kbps:hi?8000:5000};
+}
+// Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
+// Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
+// Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
+function socialVf(t,c,mode){
+  const parts=[];
+  if(c)parts.push(`crop=${c.w}:${c.h}:${c.x}:${c.y}`);
+  const [fw,fh]=c?[c.w,c.h]:[width,height];
+  if(mode==='fill'){
+    const A=t.w/t.h;let aw,ah;
+    if(fw/fh>A){ah=evenDown(fh);aw=Math.min(evenDown(fw),evenRound(ah*A))}
+    else{aw=evenDown(fw);ah=Math.min(evenDown(fh),evenRound(aw/A))}
+    if(aw!==fw||ah!==fh)parts.push(`crop=${aw}:${ah}:${evenDown((fw-aw)/2)}:${evenDown((fh-ah)/2)}`);
+    parts.push(`scale=${t.w}:${t.h}:flags=lanczos`);
+  }else{
+    const k=Math.min(t.w/fw,t.h/fh), sw=Math.min(t.w,evenRound(fw*k)), sh=Math.min(t.h,evenRound(fh*k));
+    parts.push(`scale=${sw}:${sh}:flags=lanczos`);
+    if(sw!==t.w||sh!==t.h)parts.push(`pad=${t.w}:${t.h}:${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)}:color=black`);
+  }
+  parts.push('setsar=1','fps=30');
+  return parts.join(',');
+}
+// Length compliance: warn only, never re-trim.
+function lengthCheck(o,d){
+  if(o.budget)return {fits:true,text:'any length (size budget only)'};
+  const lim=fmtTime(o.maxLen);
+  if(o.reach){
+    if(d<=o.maxLen+1e-6)return {fits:true,text:`fits ${lim} (Reels recommendation reach)`};
+    return {fits:false,text:d>1200?`over Instagram's 20:00 maximum`:`over ${lim}: Instagram still posts it (up to 20 min), but longer posts won't be recommended to non-followers`};
+  }
+  return d<=o.maxLen+1e-6?{fits:true,text:`fits ${lim} limit`}:{fits:false,text:`over the ${lim} limit`};
+}
+function renderOutputs(r){
+  const outs=checkedOutputs(), d=segDuration(), ul=$('outSummary');
+  ul.innerHTML='';
+  const over=[];
+  for(const o of outs){
+    const li=document.createElement('li'), L=lengthCheck(o,d);
+    let txt;
+    if(o.id==='discord')txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 64 kb/s audio, two-pass — ${L.text}`;
+    else if(o.id==='chan')txt=`4chan: ${r.cw}×${r.ch}, ~${r.chanVideo} kb/s VP8, no audio, two-pass — ${L.text}`;
+    else{
+      const t=socialTarget(o), mb=(t.kbps+SOCIAL_AUDIO_KBPS)*d/8/1000;
+      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${aspectMode()==='fill'?'fill / crop':'fit / black bars'}), ${t.kbps/1000} Mb/s video + ${SOCIAL_AUDIO_KBPS} kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
+    }
+    li.textContent=txt;if(!L.fits){li.className='over';over.push(o)}
+    ul.appendChild(li);
+  }
+  ul.hidden=!outs.length;
+  const w=$('lengthWarn');
+  w.textContent=over.length?`Too long for ${over.map(o=>`${o.name} (${o.reach?'3:00 for reach':fmtTime(o.maxLen)})`).join(', ')}: this clip is ${fmtTime(d)}. Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
+  w.hidden=!over.length;
+}
+let busy=false;
+function updateGo(){
+  const n=checkedOutputs().length;
+  go.textContent=n?`Go — make ${n} file${n===1?'':'s'}`:'Go';
+  $('outMsg').textContent='Nothing to make: check at least one output above.';$('outMsg').hidden=n>0;
+  go.disabled=busy||!selected||!duration||!trim.ok||!n;
 }
 
 // ---- Trim ----
@@ -202,7 +328,7 @@ function applyTrim(fromFields=true){
     $('trimStart').value=fmtTrim(start);$('trimEnd').value=fmtTrim(end);
   }
   err.textContent=msg.trim();err.hidden=!msg;
-  go.disabled=!selected||!duration||!trim.ok;
+  updateGo();
   if(trim.ok)estimate();
 }
 $('trimStart').addEventListener('change',()=>applyTrim());
@@ -210,6 +336,16 @@ $('trimEnd').addEventListener('change',()=>applyTrim());
 $('setStart').addEventListener('click',()=>{$('trimStart').value=fmtTrim(preview.currentTime||0);applyTrim()});
 $('setEnd').addEventListener('click',()=>{$('trimEnd').value=fmtTrim(preview.currentTime||0);applyTrim()});
 $('resetTrim').addEventListener('click',()=>{trim.start=0;trim.end=duration;applyTrim(false)});
+for(const b of $('quickLengths').children)b.addEventListener('click',()=>{
+  const len=Number(b.dataset.len), q=$('quickNote');
+  let start=parseTime($('trimStart').value);if(Number.isNaN(start))start=trim.start;
+  start=clamp(start,0,duration);
+  trim.start=start;trim.end=Math.min(start+len,duration);applyTrim(false);
+  const got=trim.end-trim.start;
+  q.textContent=got<len-0.05?`Trimmed duration ${fmtTime(got)} (clip is shorter than ${fmtTime(len)} from this start).`:'';
+  q.hidden=!q.textContent;
+});
+for(const id of ['trimStart','trimEnd','setStart','setEnd','resetTrim'])$(id).addEventListener(id.startsWith('trim')?'change':'click',()=>{$('quickNote').hidden=true});
 $('playhead').addEventListener('input',e=>{preview.currentTime=Number(e.target.value);$('playheadTime').textContent=fmtTrim(Number(e.target.value))});
 preview.addEventListener('timeupdate',()=>{$('playhead').value=preview.currentTime;$('playheadTime').textContent=fmtTrim(preview.currentTime)});
 
@@ -298,7 +434,7 @@ $('mode').addEventListener('input',syncMode);syncMode();
 fileInput.addEventListener('change',()=>{
   selected=fileInput.files?.[0]||null;
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('results').hidden=true;$('links').innerHTML='';
-  go.disabled=true;duration=0;
+  go.disabled=true;duration=0;$('quickNote').hidden=true;
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
   if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';return}
   previewURL=URL.createObjectURL(selected);
@@ -353,14 +489,17 @@ function saveBlob(blob,name){
 const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — OVER the ${fmtBytes(cap)} hard cap, it may not upload; trim shorter and try again.`:` (under the ${fmtBytes(cap)} cap)`);
 go.addEventListener('click',async()=>{
   applyTrim();
-  if(!selected||!duration||!trim.ok)return;
-  go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
-  const s=estimate();
+  const outs=checkedOutputs();
+  if(busy||!selected||!duration||!trim.ok||!outs.length)return;
+  busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
+  const s=estimate(), mode=aspectMode();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
   const DLOG='dpass', CLOG='cpass';
   const discordLogs=[DLOG+'-0.log',DLOG+'-0.log.mbtree',DLOG+'-0.log.temp',DLOG+'-0.log.mbtree.temp'];
   const chanLogs=[CLOG+'-0.log'];
+  const socialTmp=o=>o.id+'.mp4';
+  const tempsFor=o=>o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
   let engine=null;
   try{
     engine=await loadFFmpeg();
@@ -372,33 +511,62 @@ go.addEventListener('click',async()=>{
     const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
     const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
     const cropF=s.crop?`crop=${s.crop.w}:${s.crop.h}:${s.crop.x}:${s.crop.y},`:'';
-    const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`;
-    const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=lanczos,fps=30`;
-    const x264=['-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG];
-    setPhase('Discord pass 1 of 2…',0,0.2);
-    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
-    setPhase('Discord pass 2 of 2…',0.2,0.3);
-    await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
-    const mp4=await engine.readFile('discord.mp4');
-    saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
-    await removeFiles(engine,[...discordLogs,'discord.mp4']);
-    const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',CLOG];
-    setPhase('4chan pass 1 of 2…',0.5,0.15);
-    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
-    setPhase('4chan pass 2 of 2…',0.65,0.35);
-    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
-    const webm=await engine.readFile('4chan.webm');
-    saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
-    await removeFiles(engine,[...chanLogs,'4chan.webm']);
+    // One output at a time. Each output owns a slice of the bar (two-pass outputs weigh 2).
+    const weight=o=>o.budget?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
+    const encoders={
+      async discord(tag,from,span){
+        const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`;
+        const x264=['-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG];
+        setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
+        setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
+        const mp4=await engine.readFile('discord.mp4');
+        saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
+        return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
+      },
+      async chan(tag,from,span){
+        const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=lanczos,fps=30`;
+        const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',CLOG];
+        setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+        setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
+        const webm=await engine.readFile('4chan.webm');
+        saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
+        return sizeLine('4chan',webm.byteLength,CHAN_CAP);
+      },
+      // Social outputs: single pass, fixed quality bitrate, no size budget.
+      async social(o,tag,from,span){
+        const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
+        setPhase(`${tag}…`,from,span);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset','veryfast','-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60','-pix_fmt','yuv420p','-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
+        const mp4=await engine.readFile(out);
+        saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
+        const L=lengthCheck(o,segDuration());
+        return `${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
+      },
+    };
+    const lines=[];let failed=0,made=0,from=0;
+    for(const [i,o] of outs.entries()){
+      const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
+      try{
+        lines.push(o.budget?await encoders[o.id](tag,from,span):await encoders.social(o,tag,from,span));made++;
+      }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
+      finally{await removeFiles(engine,tempsFor(o))}
+      from+=span;
+    }
     phase={label:'',from:0,span:0};
-    $('results').hidden=false;bar.style.width='100%';
-    status.textContent=`Done. ${sizeLine('Discord',mp4.byteLength,DISCORD_CAP)}\n${sizeLine('4chan',webm.byteLength,CHAN_CAP)}`;
+    $('results').hidden=!made;bar.style.width='100%';
+    const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
+    status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
   }catch(e){phase={label:'',from:0,span:0};status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
   finally{
-    if(engine)await removeFiles(engine,[input,'discord.mp4','4chan.webm',...discordLogs,...chanLogs]);
-    go.disabled=!trim.ok;
+    if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
+    busy=false;updateGo();
   }
 });
+updateGo();
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
 $('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
