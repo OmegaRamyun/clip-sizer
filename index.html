@@ -8,20 +8,38 @@
 <title>Clip Sizer</title>
 <style>
 :root{color-scheme:dark;--bg:#10121a;--panel:#1b1f2b;--muted:#a8afc0;--accent:#a78bfa;--line:#34394a}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f6fb;font:16px system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:720px;margin:auto;padding:24px 16px 48px}h1{font-size:2rem;margin:4px 0}p{color:var(--muted);line-height:1.45}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f6fb;font:16px system-ui,-apple-system,Segoe UI,sans-serif;overflow-x:hidden}
+main{max-width:720px;margin:auto;padding:24px 16px 48px}h1{font-size:2rem;margin:4px 0}h2{font-size:1.15rem;margin:0 0 6px}p{color:var(--muted);line-height:1.45}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}
 input[type=file]{width:100%;padding:14px;border:1px dashed #626b82;border-radius:12px;background:#141824;color:#fff}
-button,.download{border:0;border-radius:12px;padding:14px 18px;background:var(--accent);color:#171323;font-weight:750;font-size:1rem;text-decoration:none;display:inline-block}
+button,.download{border:0;border-radius:12px;padding:14px 18px;background:var(--accent);color:#171323;font-weight:750;font-size:1rem;text-decoration:none;display:inline-block;min-height:44px}
 button:disabled{opacity:.45}button.secondary{background:#33394b;color:#fff}
 .actions{display:flex;gap:10px;flex-wrap:wrap}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .stat{background:#141824;border-radius:10px;padding:12px}.stat small{display:block;color:var(--muted);margin-bottom:5px}
 .stat strong{font-size:1.05rem;overflow-wrap:anywhere}
 .progress{height:9px;background:#34394a;border-radius:99px;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:var(--accent);transition:width .2s}
-#status{white-space:pre-wrap;color:#d8dced;font-size:.94rem}
+#status{white-space:pre-wrap;color:#d8dced;font-size:.94rem;overflow-wrap:anywhere}
 .output{padding:12px 0;border-top:1px solid var(--line)}.output:first-child{border-top:0}
-.note{font-size:.85rem}.warn{color:#f5c979}
+.note{font-size:.85rem}.warn{color:#f5c979}.err{color:#ff8a8a;font-size:.9rem;margin:8px 0 0}
 label{display:block;margin:10px 0 6px;color:var(--muted)}
+input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
+.field{min-width:0}.field input{width:100%;min-height:44px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#141824;color:#fff;font-size:1rem}
+.fields2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fields4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.fields4 label,.fields2 label{margin:6px 0 4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.row button{flex:1 1 140px;padding:10px 12px}
+.stops{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.stops button{padding:8px 6px;font-size:.85rem;background:#33394b;color:#fff;font-weight:600}
+.stops button[aria-pressed=true]{background:var(--accent);color:#171323;font-weight:750}
+.stage{position:relative;margin:8px auto 0;max-width:100%;background:#000;border-radius:10px;overflow:hidden}
+.stage video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill}
+.overlay{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.overlay.editing{pointer-events:auto;touch-action:none;cursor:crosshair}
+.cropbox{position:absolute;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+.overlay:not(.cropped):not(.editing) .cropbox{display:none}
+.handle{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;background:var(--accent);border:2px solid #171323;border-radius:4px;display:none}
+.overlay.editing .handle{display:block}
+.h-nw{left:0;top:0}.h-ne{left:100%;top:0}.h-sw{left:0;top:100%}.h-se{left:100%;top:100%}
 </style>
 </head>
 <body>
@@ -35,11 +53,53 @@ label{display:block;margin:10px 0 6px;color:var(--muted)}
       <div class="statgrid" style="margin-top:14px">
         <div class="stat"><small>Duration</small><strong id="duration">—</strong></div>
         <div class="stat"><small>Source resolution</small><strong id="resolution">—</strong></div>
-        <div class="stat"><small>Discord target</small><strong>7.6 MB · MP4 + audio</strong></div>
-        <div class="stat"><small>4chan target</small><strong>3.7 MB · WebM VP8 · silent</strong></div>
+        <div class="stat"><small>Trimmed duration</small><strong id="trimmed">—</strong></div>
+        <div class="stat"><small>Crop</small><strong id="cropstat">Full frame</strong></div>
+        <div class="stat"><small>Discord target</small><strong>19 MB · MP4 + audio</strong></div>
+        <div class="stat"><small>4chan target</small><strong>3.8 MB · WebM VP8 · silent</strong></div>
       </div>
-      <p class="note" id="estimates"></p>
     </div>
+  </section>
+  <section class="panel" id="editor" hidden>
+    <h2>Trim &amp; crop</h2>
+    <div class="stage" id="stage">
+      <video id="preview" controls playsinline muted preload="metadata"></video>
+      <div class="overlay" id="overlay">
+        <div class="cropbox" id="cropbox"><span class="handle h-nw"></span><span class="handle h-ne"></span><span class="handle h-sw"></span><span class="handle h-se"></span></div>
+      </div>
+    </div>
+    <label for="playhead">Playhead <span id="playheadTime">0:00.0</span></label>
+    <input id="playhead" type="range" min="0" max="0" step="0.1" value="0">
+    <div class="fields2">
+      <div class="field"><label for="trimStart">Start (m:ss)</label><input id="trimStart" inputmode="decimal" autocomplete="off" value="0:00.0"></div>
+      <div class="field"><label for="trimEnd">End (m:ss)</label><input id="trimEnd" inputmode="decimal" autocomplete="off" value="0:00.0"></div>
+    </div>
+    <div class="row">
+      <button type="button" class="secondary" id="setStart">Start = playhead</button>
+      <button type="button" class="secondary" id="setEnd">End = playhead</button>
+      <button type="button" class="secondary" id="resetTrim">Whole video</button>
+    </div>
+    <p class="err" id="trimError" hidden></p>
+    <label>Crop box (source pixels)</label>
+    <div class="fields4">
+      <div class="field"><label for="cropX">x</label><input id="cropX" type="number" inputmode="numeric" min="0" step="2"></div>
+      <div class="field"><label for="cropY">y</label><input id="cropY" type="number" inputmode="numeric" min="0" step="2"></div>
+      <div class="field"><label for="cropW">width</label><input id="cropW" type="number" inputmode="numeric" min="16" step="2"></div>
+      <div class="field"><label for="cropH">height</label><input id="cropH" type="number" inputmode="numeric" min="16" step="2"></div>
+    </div>
+    <div class="row">
+      <button type="button" class="secondary" id="cropEdit" aria-pressed="false">Draw / adjust crop</button>
+      <button type="button" class="secondary" id="cropReset">Reset crop</button>
+    </div>
+    <p class="note">While “Draw / adjust crop” is on, drag on the video to draw a box, drag inside it to move it, or drag an edge/corner to resize. Turn it off to use the video controls again.</p>
+  </section>
+  <section class="panel" id="tradeoff" hidden>
+    <h2>Quality / resolution</h2>
+    <input id="mode" type="range" min="0" max="2" step="1" value="1" aria-label="Quality / resolution tradeoff" list="modeStops">
+    <datalist id="modeStops"><option value="0"></option><option value="1"></option><option value="2"></option></datalist>
+    <div class="stops" id="modeButtons"></div>
+    <p class="note">Only changes the frame size each bitrate gets. Size targets and bitrates stay the same.</p>
+    <p class="note" id="estimates"></p>
   </section>
   <section class="panel">
     <div class="actions">
@@ -48,7 +108,7 @@ label{display:block;margin:10px 0 6px;color:var(--muted)}
     </div>
     <div class="progress"><div class="bar" id="bar"></div></div>
     <div id="status">Select a video to begin.</div>
-    <p class="note warn">Encoding can take several minutes and may use substantial memory. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
+    <p class="note warn">Encoding can take several minutes and may use substantial memory. Both files are encoded in two passes for better quality, so it takes about twice as long as a single pass. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
   </section>
   <section class="panel" id="results" hidden>
     <h2>Finished files</h2>
@@ -62,81 +122,282 @@ import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@
 
 const $ = id => document.getElementById(id);
 const fileInput=$('video'), go=$('go'), status=$('status'), bar=$('bar');
-let selected=null, duration=0, width=0, height=0, ffmpeg=null, installPrompt=null;
+const preview=$('preview'), overlay=$('overlay'), cropbox=$('cropbox'), stage=$('stage');
+let selected=null, duration=0, width=0, height=0, ffmpeg=null, installPrompt=null, previewURL=null;
+let trim={start:0,end:0,ok:true};
+let crop={x:0,y:0,w:0,h:0};
+const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=3.8e6, CHAN_CAP=3.89e6;
 const fmtBytes=n => n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1e3).toFixed(0)+' KB';
 const fmtTime=s => {const m=Math.floor(s/60), sec=Math.floor(s%60);return `${m}:${String(sec).padStart(2,'0')}`};
+const fmtTrim=s => {const t=Math.round(s*10)/10, m=Math.floor(t/60), sec=(t-m*60).toFixed(1);return `${m}:${sec.padStart(4,'0')}`};
 const even=n=>Math.max(2,Math.floor(n/2)*2);
-function dimensionsFor(maxKbps, w, h, cap) {
-  // Conservative resolution tiers based on available video bitrate.
-  let maxDim = maxKbps < 180 ? 360 : maxKbps < 350 ? 480 : maxKbps < 650 ? 720 : 1080;
+const evenDown=n=>Math.max(0,Math.floor(n/2)*2);
+const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+
+// Quality / resolution tradeoff. thresholdScale multiplies the bitrate thresholds of the
+// resolution tiers: <1 lets a given bitrate keep a bigger frame, >1 downscales sooner.
+// "Mixed" is exactly 1, i.e. the original tier table.
+const TRADEOFF_MODES=[
+  {label:'High Resolution, Low Bitrate',thresholdScale:0.6},
+  {label:'Mixed',thresholdScale:1},
+  {label:'High Quality, Low Res',thresholdScale:1.65},
+];
+const RES_TIERS=[[180,360],[350,480],[650,720]]; // [below this kb/s, max dimension]; else 1080
+const currentMode=()=>TRADEOFF_MODES[Number($('mode').value)]||TRADEOFF_MODES[1];
+function dimensionsFor(maxKbps, w, h, cap, thresholdScale=1) {
+  // Conservative resolution tiers based on available video bitrate, biased by the tradeoff mode.
+  let maxDim=1080;
+  for(const [kbps,dim] of RES_TIERS){if(maxKbps<kbps*thresholdScale){maxDim=dim;break}}
   maxDim=Math.min(maxDim,cap);
   const scale=Math.min(1,maxDim/Math.max(w,h));
   return [even(w*scale),even(h*scale)];
 }
+
+// Crop: null when the box covers the full frame, else an even-snapped rect inside the source.
+function cropRect(){
+  if(!width||!height)return null;
+  const x=clamp(evenDown(crop.x),0,evenDown(width-16)), y=clamp(evenDown(crop.y),0,evenDown(height-16));
+  const w=clamp(evenDown(crop.w),16,evenDown(width-x)), h=clamp(evenDown(crop.h),16,evenDown(height-y));
+  if(x===0&&y===0&&w>=evenDown(width)&&h>=evenDown(height))return null;
+  return {x,y,w,h};
+}
+const frameSize=()=>{const c=cropRect();return c?[c.w,c.h]:[width,height]};
+const segDuration=()=>Math.max(trim.end-trim.start,0);
+
 function estimate() {
-  const d=Math.max(duration,0.1);
-  const discordTotal=7.6*1e6*8/d/1000;
+  const d=Math.max(segDuration(),0.1);
+  const discordTotal=DISCORD_TARGET*8/d/1000;
   const discordAudio=64;
   const discordVideo=Math.max(80,Math.floor((discordTotal-discordAudio)*.94));
-  const chanTotal=3.7*1e6*8/d/1000;
+  const chanTotal=CHAN_TARGET*8/d/1000;
   const chanVideo=Math.max(70,Math.floor(chanTotal*.92));
-  const [dw,dh]=dimensionsFor(discordVideo,width,height,1080);
-  const [cw,ch]=dimensionsFor(chanVideo,width,height,720);
-  $('estimates').textContent=`Estimated settings: Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio. 4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio.`;
-  return {discordVideo,discordAudio,chanVideo,dw,dh,cw,ch};
+  const mode=currentMode(), [fw,fh]=frameSize(), c=cropRect();
+  const [dw,dh]=dimensionsFor(discordVideo,fw,fh,1080,mode.thresholdScale);
+  const [cw,ch]=dimensionsFor(chanVideo,fw,fh,720,mode.thresholdScale);
+  $('trimmed').textContent=`${fmtTrim(segDuration())} (${segDuration().toFixed(1)} s)`;
+  $('cropstat').textContent=c?`${c.w} × ${c.h} at ${c.x},${c.y}`:'Full frame';
+  $('estimates').textContent=`Mode: ${mode.label} — Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio. 4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio. Segment ${fmtTrim(trim.start)}–${fmtTrim(trim.end)} (${segDuration().toFixed(1)} s)`+(c?`, cropped to ${c.w}×${c.h}.`:', full frame.');
+  return {discordVideo,discordAudio,chanVideo,dw,dh,cw,ch,crop:c};
 }
+
+// ---- Trim ----
+function parseTime(str){
+  const s=String(str).trim();
+  if(!s)return NaN;
+  if(/^\d+(\.\d+)?$/.test(s))return Number(s);
+  const m=s.match(/^(\d+):(\d{1,2}(?:\.\d+)?)$/);
+  if(!m||Number(m[2])>=60)return NaN;
+  return Number(m[1])*60+Number(m[2]);
+}
+function applyTrim(fromFields=true){
+  const err=$('trimError');let msg='';
+  let start=fromFields?parseTime($('trimStart').value):trim.start;
+  let end=fromFields?parseTime($('trimEnd').value):trim.end;
+  if(Number.isNaN(start)||Number.isNaN(end)){msg='Times must look like m:ss (for example 1:05.5) or plain seconds.';trim.ok=false}
+  else{
+    if(start<0){start=0;msg='Start was before 0:00; clamped to 0:00.0. '}
+    if(end>duration){end=duration;msg+=`End was past the end of the video; clamped to ${fmtTrim(duration)}. `}
+    if(start>=end){msg+='Start must be before end.';trim.ok=false}else trim.ok=true;
+    trim.start=start;trim.end=end;
+    $('trimStart').value=fmtTrim(start);$('trimEnd').value=fmtTrim(end);
+  }
+  err.textContent=msg.trim();err.hidden=!msg;
+  go.disabled=!selected||!duration||!trim.ok;
+  if(trim.ok)estimate();
+}
+$('trimStart').addEventListener('change',()=>applyTrim());
+$('trimEnd').addEventListener('change',()=>applyTrim());
+$('setStart').addEventListener('click',()=>{$('trimStart').value=fmtTrim(preview.currentTime||0);applyTrim()});
+$('setEnd').addEventListener('click',()=>{$('trimEnd').value=fmtTrim(preview.currentTime||0);applyTrim()});
+$('resetTrim').addEventListener('click',()=>{trim.start=0;trim.end=duration;applyTrim(false)});
+$('playhead').addEventListener('input',e=>{preview.currentTime=Number(e.target.value);$('playheadTime').textContent=fmtTrim(Number(e.target.value))});
+preview.addEventListener('timeupdate',()=>{$('playhead').value=preview.currentTime;$('playheadTime').textContent=fmtTrim(preview.currentTime)});
+
+// ---- Crop ----
+const MIN_CROP=16;
+function renderCrop(){
+  const c=cropRect()||{x:0,y:0,w:width,h:height};
+  cropbox.style.left=(c.x/width*100)+'%';cropbox.style.top=(c.y/height*100)+'%';
+  cropbox.style.width=(c.w/width*100)+'%';cropbox.style.height=(c.h/height*100)+'%';
+  overlay.classList.toggle('cropped',!!cropRect());
+  $('cropX').value=c.x;$('cropY').value=c.y;$('cropW').value=c.w;$('cropH').value=c.h;
+  estimate();
+}
+function setCrop(x,y,w,h){
+  x=clamp(x,0,width-MIN_CROP);y=clamp(y,0,height-MIN_CROP);
+  crop={x,y,w:clamp(w,MIN_CROP,width-x),h:clamp(h,MIN_CROP,height-y)};
+  const c=cropRect();if(c)crop={...c};
+  renderCrop();
+}
+function resetCrop(){crop={x:0,y:0,w:width,h:height};renderCrop()}
+for(const id of ['cropX','cropY','cropW','cropH'])$(id).addEventListener('change',()=>{
+  const n=id=>{const v=Number($(id).value);return Number.isFinite(v)?v:0};
+  setCrop(n('cropX'),n('cropY'),n('cropW'),n('cropH'));
+});
+$('cropReset').addEventListener('click',resetCrop);
+$('cropEdit').addEventListener('click',()=>{
+  const on=!overlay.classList.contains('editing');
+  overlay.classList.toggle('editing',on);preview.controls=!on;
+  $('cropEdit').setAttribute('aria-pressed',String(on));
+  $('cropEdit').textContent=on?'Done adjusting crop':'Draw / adjust crop';
+});
+let drag=null;
+function srcPoint(e){
+  const r=overlay.getBoundingClientRect();
+  return {x:clamp((e.clientX-r.left)/r.width*width,0,width),y:clamp((e.clientY-r.top)/r.height*height,0,height),k:width/r.width};
+}
+overlay.addEventListener('pointerdown',e=>{
+  if(!overlay.classList.contains('editing'))return;
+  e.preventDefault();overlay.setPointerCapture(e.pointerId);
+  const p=srcPoint(e), c=cropRect()||{x:0,y:0,w:width,h:height}, tol=24*p.k;
+  const box={l:c.x,t:c.y,r:c.x+c.w,b:c.y+c.h};
+  const near=(a,b)=>Math.abs(a-b)<tol;
+  const inX=p.x>box.l-tol&&p.x<box.r+tol, inY=p.y>box.t-tol&&p.y<box.b+tol;
+  const edges={l:inY&&near(p.x,box.l),r:inY&&near(p.x,box.r),t:inX&&near(p.y,box.t),b:inX&&near(p.y,box.b)};
+  if(edges.l&&edges.r){edges[p.x<(box.l+box.r)/2?'r':'l']=false}
+  if(edges.t&&edges.b){edges[p.y<(box.t+box.b)/2?'b':'t']=false}
+  // A full-frame box has all edges on the frame border: drawing a new box is more useful there.
+  const full=!cropRect();
+  if(!full&&(edges.l||edges.r||edges.t||edges.b))drag={mode:'resize',edges,box};
+  else if(!full&&p.x>box.l&&p.x<box.r&&p.y>box.t&&p.y<box.b)drag={mode:'move',start:p,box};
+  else drag={mode:'draw',start:p};
+});
+overlay.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const p=srcPoint(e);
+  if(drag.mode==='draw'){
+    const l=Math.min(drag.start.x,p.x),t=Math.min(drag.start.y,p.y);
+    const w=Math.abs(p.x-drag.start.x),h=Math.abs(p.y-drag.start.y);
+    if(w<MIN_CROP&&h<MIN_CROP)return;
+    setCrop(l,t,w,h);
+  }else if(drag.mode==='move'){
+    const b=drag.box, w=b.r-b.l, h=b.b-b.t;
+    setCrop(clamp(b.l+p.x-drag.start.x,0,width-w),clamp(b.t+p.y-drag.start.y,0,height-h),w,h);
+  }else{
+    let {l,t,r,b}=drag.box;const E=drag.edges;
+    if(E.l)l=clamp(p.x,0,r-MIN_CROP);if(E.r)r=clamp(p.x,l+MIN_CROP,width);
+    if(E.t)t=clamp(p.y,0,b-MIN_CROP);if(E.b)b=clamp(p.y,t+MIN_CROP,height);
+    setCrop(l,t,r-l,b-t);
+  }
+});
+const endDrag=()=>{drag=null};
+overlay.addEventListener('pointerup',endDrag);overlay.addEventListener('pointercancel',endDrag);
+
+// ---- Quality / resolution slider ----
+TRADEOFF_MODES.forEach((m,i)=>{
+  const b=document.createElement('button');b.type='button';b.textContent=m.label;b.dataset.stop=i;
+  b.addEventListener('click',()=>{$('mode').value=i;syncMode()});
+  $('modeButtons').appendChild(b);
+});
+function syncMode(){
+  for(const b of $('modeButtons').children)b.setAttribute('aria-pressed',String(b.dataset.stop===$('mode').value));
+  if(duration)estimate();
+}
+$('mode').addEventListener('input',syncMode);syncMode();
+
 fileInput.addEventListener('change',()=>{
   selected=fileInput.files?.[0]||null;
-  $('details').hidden=true;$('results').hidden=true;$('links').innerHTML='';
-  go.disabled=!selected;
-  if(!selected){status.textContent='Select a video to begin.';return}
-  const url=URL.createObjectURL(selected), v=document.createElement('video');
-  v.preload='metadata';v.onloadedmetadata=()=>{
-    duration=v.duration;width=v.videoWidth;height=v.videoHeight;
+  $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('results').hidden=true;$('links').innerHTML='';
+  go.disabled=true;duration=0;
+  if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
+  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';return}
+  previewURL=URL.createObjectURL(selected);
+  preview.onloadedmetadata=()=>{
+    duration=preview.duration;width=preview.videoWidth;height=preview.videoHeight;
+    if(!Number.isFinite(duration)||!width||!height){status.textContent='Could not read this video. Try another file.';return}
     $('duration').textContent=fmtTime(duration);
     $('resolution').textContent=`${width} × ${height}`;
-    $('details').hidden=false;estimate();URL.revokeObjectURL(url);
-  };v.onerror=()=>{status.textContent='Could not read this video. Try another file.';URL.revokeObjectURL(url)};v.src=url;
+    stage.style.aspectRatio=`${width} / ${height}`;
+    stage.style.width=`min(100%, ${(60*width/height).toFixed(2)}vh)`;
+    $('playhead').max=duration;$('playhead').value=0;
+    trim={start:0,end:duration,ok:true};
+    $('details').hidden=false;$('editor').hidden=false;$('tradeoff').hidden=false;
+    crop={x:0,y:0,w:width,h:height};
+    applyTrim(false);renderCrop();
+    status.textContent='Ready. Adjust trim, crop, and the quality slider if you like, then press Go.';
+  };
+  preview.onerror=()=>{status.textContent='Could not read this video. Try another file.'};
+  preview.src=previewURL;
 });
+
+// Progress spans the whole job: each pass owns a slice [from, from+span] of the bar.
+let phase={label:'',from:0,span:0}, phaseDur=1, lastLog='';
+function setPhase(label,from,span){phase={label,from,span};status.textContent=label;bar.style.width=(from*100)+'%'}
+function phaseProgress(frac){bar.style.width=(clamp(phase.from+clamp(frac,0,1)*phase.span,0,1)*100)+'%'}
 async function loadFFmpeg(){
   if(ffmpeg)return ffmpeg;
   status.textContent='Loading video encoder (first launch downloads about 30–40 MB)…';
   ffmpeg=new FFmpeg();
-  ffmpeg.on('log',({message})=>{if(message)status.textContent=message.slice(-450)});
-  ffmpeg.on('progress',({progress})=>{bar.style.width=Math.max(0,Math.min(100,progress*100))+'%'});
+  ffmpeg.on('log',({message})=>{
+    if(!message)return;
+    lastLog=message;
+    status.textContent=(phase.label?phase.label+'\n':'')+message.slice(-450);
+    const t=message.match(/time=\s*(-?\d+):(\d+):(\d+(?:\.\d+)?)/);
+    if(t&&phase.span)phaseProgress((Number(t[1])*3600+Number(t[2])*60+Number(t[3]))/phaseDur);
+  });
   const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
   await ffmpeg.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
   return ffmpeg;
 }
+async function run(engine,args){
+  const rc=await engine.exec(args);
+  if(typeof rc==='number'&&rc!==0)throw new Error(lastLog||('ffmpeg exited with code '+rc));
+}
+async function removeFiles(engine,files){for(const f of files){try{await engine.deleteFile(f)}catch{}}}
 function saveBlob(blob,name){
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url;a.download=name;a.className='download';a.textContent=`Download ${name} (${fmtBytes(blob.size)})`;
   a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('links').appendChild(a);
 }
+const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — OVER the ${fmtBytes(cap)} hard cap, it may not upload; trim shorter and try again.`:` (under the ${fmtBytes(cap)} cap)`);
 go.addEventListener('click',async()=>{
-  if(!selected||!duration)return;
+  applyTrim();
+  if(!selected||!duration||!trim.ok)return;
   go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
-  const s=estimate(), engine=await loadFFmpeg();
+  const s=estimate();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
+  const DLOG='dpass', CLOG='cpass';
+  const discordLogs=[DLOG+'-0.log',DLOG+'-0.log.mbtree',DLOG+'-0.log.temp',DLOG+'-0.log.mbtree.temp'];
+  const chanLogs=[CLOG+'-0.log'];
+  let engine=null;
   try{
+    engine=await loadFFmpeg();
     status.textContent='Reading source video…';
     await engine.writeFile(input,await fetchFile(selected));
     const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
-    status.textContent='Encoding Discord MP4…';bar.style.width='5%';
-    await engine.exec(['-i',input,'-vf',`scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`,'-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
+    phaseDur=Math.max(segDuration(),0.1);
+    // Input seeking (-ss before -i) and output duration (-t); omitted when not trimmed.
+    const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
+    const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
+    const cropF=s.crop?`crop=${s.crop.w}:${s.crop.h}:${s.crop.x}:${s.crop.y},`:'';
+    const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`;
+    const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=lanczos,fps=30`;
+    const x264=['-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG];
+    setPhase('Discord pass 1 of 2…',0,0.2);
+    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
+    setPhase('Discord pass 2 of 2…',0.2,0.3);
+    await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
     const mp4=await engine.readFile('discord.mp4');
     saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
-    status.textContent='Encoding silent VP8 WebM for 4chan…';bar.style.width='52%';
-    await engine.exec(['-i',input,'-an','-vf',`scale=${s.cw}:${s.ch}:flags=lanczos,fps=30`,'-c:v','libvpx','-deadline','realtime','-cpu-used','5','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','4chan.webm']);
+    await removeFiles(engine,[...discordLogs,'discord.mp4']);
+    const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',CLOG];
+    setPhase('4chan pass 1 of 2…',0.5,0.15);
+    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+    setPhase('4chan pass 2 of 2…',0.65,0.35);
+    await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
     const webm=await engine.readFile('4chan.webm');
     saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
+    await removeFiles(engine,[...chanLogs,'4chan.webm']);
+    phase={label:'',from:0,span:0};
     $('results').hidden=false;bar.style.width='100%';
-    status.textContent=`Done. Discord: ${fmtBytes(mp4.byteLength)}. 4chan: ${fmtBytes(webm.byteLength)}.`;
-    for(const f of [input,'discord.mp4','4chan.webm']){try{await engine.deleteFile(f)}catch{}}
-  }catch(e){status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
-  finally{go.disabled=false}
+    status.textContent=`Done. ${sizeLine('Discord',mp4.byteLength,DISCORD_CAP)}\n${sizeLine('4chan',webm.byteLength,CHAN_CAP)}`;
+  }catch(e){phase={label:'',from:0,span:0};status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
+  finally{
+    if(engine)await removeFiles(engine,[input,'discord.mp4','4chan.webm',...discordLogs,...chanLogs]);
+    go.disabled=!trim.ok;
+  }
 });
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
 $('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
