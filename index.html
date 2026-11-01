@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#171923">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Clip Sizer</title>
+<style>
+:root{color-scheme:dark;--bg:#10121a;--panel:#1b1f2b;--muted:#a8afc0;--accent:#a78bfa;--line:#34394a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f6fb;font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:720px;margin:auto;padding:24px 16px 48px}h1{font-size:2rem;margin:4px 0}p{color:var(--muted);line-height:1.45}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}
+input[type=file]{width:100%;padding:14px;border:1px dashed #626b82;border-radius:12px;background:#141824;color:#fff}
+button,.download{border:0;border-radius:12px;padding:14px 18px;background:var(--accent);color:#171323;font-weight:750;font-size:1rem;text-decoration:none;display:inline-block}
+button:disabled{opacity:.45}button.secondary{background:#33394b;color:#fff}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:#141824;border-radius:10px;padding:12px}.stat small{display:block;color:var(--muted);margin-bottom:5px}
+.stat strong{font-size:1.05rem;overflow-wrap:anywhere}
+.progress{height:9px;background:#34394a;border-radius:99px;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:var(--accent);transition:width .2s}
+#status{white-space:pre-wrap;color:#d8dced;font-size:.94rem}
+.output{padding:12px 0;border-top:1px solid var(--line)}.output:first-child{border-top:0}
+.note{font-size:.85rem}.warn{color:#f5c979}
+label{display:block;margin:10px 0 6px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Clip Sizer</h1>
+  <p>Make upload-friendly copies for Discord and 4chan. Video is processed locally in your browser.</p>
+  <section class="panel">
+    <label for="video">Choose a video</label>
+    <input id="video" type="file" accept="video/*">
+    <div id="details" hidden>
+      <div class="statgrid" style="margin-top:14px">
+        <div class="stat"><small>Duration</small><strong id="duration">—</strong></div>
+        <div class="stat"><small>Source resolution</small><strong id="resolution">—</strong></div>
+        <div class="stat"><small>Discord target</small><strong>7.6 MB · MP4 + audio</strong></div>
+        <div class="stat"><small>4chan target</small><strong>3.7 MB · WebM VP8 · silent</strong></div>
+      </div>
+      <p class="note" id="estimates"></p>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="actions">
+      <button id="go" disabled>Go — make both versions</button>
+      <button id="install" class="secondary" hidden>Install app</button>
+    </div>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div id="status">Select a video to begin.</div>
+    <p class="note warn">Encoding can take several minutes and may use substantial memory. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
+  </section>
+  <section class="panel" id="results" hidden>
+    <h2>Finished files</h2>
+    <div id="links"></div>
+  </section>
+  <p class="note">Targets are deliberately set below the stated limits to leave room for container overhead. Actual file size can vary slightly by encoder/container; check the final size before uploading.</p>
+</main>
+<script type="module">
+import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js';
+
+const $ = id => document.getElementById(id);
+const fileInput=$('video'), go=$('go'), status=$('status'), bar=$('bar');
+let selected=null, duration=0, width=0, height=0, ffmpeg=null, installPrompt=null;
+const fmtBytes=n => n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1e3).toFixed(0)+' KB';
+const fmtTime=s => {const m=Math.floor(s/60), sec=Math.floor(s%60);return `${m}:${String(sec).padStart(2,'0')}`};
+const even=n=>Math.max(2,Math.floor(n/2)*2);
+function dimensionsFor(maxKbps, w, h, cap) {
+  // Conservative resolution tiers based on available video bitrate.
+  let maxDim = maxKbps < 180 ? 360 : maxKbps < 350 ? 480 : maxKbps < 650 ? 720 : 1080;
+  maxDim=Math.min(maxDim,cap);
+  const scale=Math.min(1,maxDim/Math.max(w,h));
+  return [even(w*scale),even(h*scale)];
+}
+function estimate() {
+  const d=Math.max(duration,0.1);
+  const discordTotal=7.6*1e6*8/d/1000;
+  const discordAudio=64;
+  const discordVideo=Math.max(80,Math.floor((discordTotal-discordAudio)*.94));
+  const chanTotal=3.7*1e6*8/d/1000;
+  const chanVideo=Math.max(70,Math.floor(chanTotal*.92));
+  const [dw,dh]=dimensionsFor(discordVideo,width,height,1080);
+  const [cw,ch]=dimensionsFor(chanVideo,width,height,720);
+  $('estimates').textContent=`Estimated settings: Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio. 4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio.`;
+  return {discordVideo,discordAudio,chanVideo,dw,dh,cw,ch};
+}
+fileInput.addEventListener('change',()=>{
+  selected=fileInput.files?.[0]||null;
+  $('details').hidden=true;$('results').hidden=true;$('links').innerHTML='';
+  go.disabled=!selected;
+  if(!selected){status.textContent='Select a video to begin.';return}
+  const url=URL.createObjectURL(selected), v=document.createElement('video');
+  v.preload='metadata';v.onloadedmetadata=()=>{
+    duration=v.duration;width=v.videoWidth;height=v.videoHeight;
+    $('duration').textContent=fmtTime(duration);
+    $('resolution').textContent=`${width} × ${height}`;
+    $('details').hidden=false;estimate();URL.revokeObjectURL(url);
+  };v.onerror=()=>{status.textContent='Could not read this video. Try another file.';URL.revokeObjectURL(url)};v.src=url;
+});
+async function loadFFmpeg(){
+  if(ffmpeg)return ffmpeg;
+  status.textContent='Loading video encoder (first launch downloads about 30–40 MB)…';
+  ffmpeg=new FFmpeg();
+  ffmpeg.on('log',({message})=>{if(message)status.textContent=message.slice(-450)});
+  ffmpeg.on('progress',({progress})=>{bar.style.width=Math.max(0,Math.min(100,progress*100))+'%'});
+  const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+  await ffmpeg.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
+  return ffmpeg;
+}
+function saveBlob(blob,name){
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url;a.download=name;a.className='download';a.textContent=`Download ${name} (${fmtBytes(blob.size)})`;
+  a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
+  $('links').appendChild(a);
+}
+go.addEventListener('click',async()=>{
+  if(!selected||!duration)return;
+  go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
+  const s=estimate(), engine=await loadFFmpeg();
+  const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
+  const input='input.'+ext;
+  try{
+    status.textContent='Reading source video…';
+    await engine.writeFile(input,await fetchFile(selected));
+    const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
+    status.textContent='Encoding Discord MP4…';bar.style.width='5%';
+    await engine.exec(['-i',input,'-vf',`scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`,'-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
+    const mp4=await engine.readFile('discord.mp4');
+    saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
+    status.textContent='Encoding silent VP8 WebM for 4chan…';bar.style.width='52%';
+    await engine.exec(['-i',input,'-an','-vf',`scale=${s.cw}:${s.ch}:flags=lanczos,fps=30`,'-c:v','libvpx','-deadline','realtime','-cpu-used','5','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','4chan.webm']);
+    const webm=await engine.readFile('4chan.webm');
+    saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
+    $('results').hidden=false;bar.style.width='100%';
+    status.textContent=`Done. Discord: ${fmtBytes(mp4.byteLength)}. 4chan: ${fmtBytes(webm.byteLength)}.`;
+    for(const f of [input,'discord.mp4','4chan.webm']){try{await engine.deleteFile(f)}catch{}}
+  }catch(e){status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
+  finally{go.disabled=false}
+});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
+$('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body></html>

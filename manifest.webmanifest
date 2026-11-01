@@ -1,0 +1,9 @@
+{
+  "name": "Clip Sizer",
+  "short_name": "Clip Sizer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#10121a",
+  "theme_color": "#171923",
+  "description": "Make upload-sized Discord and 4chan video copies."
+}
