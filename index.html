@@ -298,7 +298,7 @@ function renderOutputs(r){
   w.textContent=over.length?`Too long for ${over.map(o=>`${o.name} (${o.reach?'3:00 for reach':fmtTime(o.maxLen)})`).join(', ')}: this clip is ${fmtTime(d)}. Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
   w.hidden=!over.length;
 }
-let busy=false;
+let busy=false,pendingRetry=false;
 function updateGo(){
   const n=checkedOutputs().length;
   go.textContent=n?`Go — make ${n} file${n===1?'':'s'}`:'Go';
@@ -463,8 +463,8 @@ function phaseProgress(frac){bar.style.width=(clamp(phase.from+clamp(frac,0,1)*p
 async function loadFFmpeg(){
   if(ffmpeg)return ffmpeg;
   status.textContent='Loading video encoder (first launch downloads about 30–40 MB)…';
-  ffmpeg=new FFmpeg();
-  ffmpeg.on('log',({message})=>{
+  const inst=new FFmpeg();
+  inst.on('log',({message})=>{
     if(!message)return;
     lastLog=message;
     status.textContent=(phase.label?phase.label+'\n':'')+message.slice(-450);
@@ -472,7 +472,10 @@ async function loadFFmpeg(){
     if(t&&phase.span)phaseProgress((Number(t[1])*3600+Number(t[2])*60+Number(t[3]))/phaseDur);
   });
   const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-  await ffmpeg.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
+  try{
+    await inst.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
+  }catch(e){throw new Error('Encoder download failed ('+(e?.message||e)+'). Check connection and press Go again to retry.')}
+  ffmpeg=inst;
   return ffmpeg;
 }
 async function run(engine,args){
@@ -487,7 +490,7 @@ function saveBlob(blob,name){
   $('links').appendChild(a);
 }
 const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — OVER the ${fmtBytes(cap)} hard cap, it may not upload; trim shorter and try again.`:` (under the ${fmtBytes(cap)} cap)`);
-go.addEventListener('click',async()=>{
+async function runBatch(allowRetry){
   applyTrim();
   const outs=checkedOutputs();
   if(busy||!selected||!duration||!trim.ok||!outs.length)return;
@@ -552,7 +555,7 @@ go.addEventListener('click',async()=>{
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       try{
         lines.push(o.budget?await encoders[o.id](tag,from,span):await encoders.social(o,tag,from,span));made++;
-      }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
+      }catch(e){if(/not loaded/i.test(e?.message||''))throw e;failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
       finally{await removeFiles(engine,tempsFor(o))}
       from+=span;
     }
@@ -560,12 +563,14 @@ go.addEventListener('click',async()=>{
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
-  }catch(e){phase={label:'',from:0,span:0};status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
+  }catch(e){phase={label:'',from:0,span:0};if(allowRetry&&/not loaded/i.test(e?.message||'')){ffmpeg=null;pendingRetry=true;status.textContent='Encoder wasn\'t ready — downloading it now and retrying…';}else status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
   finally{
     if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
     busy=false;updateGo();
   }
-});
+  if(pendingRetry){pendingRetry=false;runBatch(false);}
+}
+go.addEventListener('click',()=>runBatch(true));
 updateGo();
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
 $('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
