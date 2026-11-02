@@ -500,7 +500,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + cap720</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + cap720 + gradbg</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -594,9 +594,9 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
-      <label class="check"><input type="radio" name="aspect" value="blur"><span>Blur — blurred background</span></label>
+      <label class="check"><input type="radio" name="aspect" value="blur"><span>Gradient — sampled-color background</span></label>
     </div>
-    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Blur keeps the whole picture and fills the bars with a blurred, darkened copy of the clip. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a thin outline around the video. Discord and 4chan always keep your clip's own shape.</p>
     <label>Speed</label>
     <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
       <label class="check"><input type="radio" name="preset" value="veryfast" checked><span>Veryfast</span></label>
@@ -915,11 +915,13 @@ function cap720(w,h){
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
 // Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
 // Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
-// Blur: the Fit foreground over a blurred background made from the same clip. The background
-// branch downscales hard (1/8 of the frame, covering it), box-blurs the tiny frame, upscales
-// back to the frame, darkens (*0.55), in whatever format the source is in. The blur only ever
-// runs on the tiny frame. When the clip already matches the frame there are no bars: plain Fit.
-const BLUR_DIV=8, BLUR_DARKEN=0.55;
+// Blur: the Fit foreground over a static sampled-color gradient. The gradient colors come
+// from the clip itself: average colors sampled at several points, combined by median (so a
+// single flash frame can't hijack the background), darkened, rendered once as a vertical
+// gradient. Static means the compressor spends ~nothing on it after frame 1, and a thin dark
+// outline keeps the video's edges distinct from its own palette. When the clip already
+// matches the frame there are no bars: plain Fit.
+let bgGradient=null;
 const scaleFlags=(base='fast_bilinear')=>$('perfExperimental')?.checked?'experimental':base;
 function socialVf(t,c,mode){
   const parts=[];
@@ -934,19 +936,50 @@ function socialVf(t,c,mode){
   }else{
     const k=Math.min(t.w/fw,t.h/fh), sw=Math.min(t.w,evenRound(fw*k)), sh=Math.min(t.h,evenRound(fh*k));
     if(mode==='blur'&&(sw!==t.w||sh!==t.h)){
-      const bw=evenRound(t.w/BLUR_DIV), bh=evenRound(t.h/BLUR_DIV), out=`val*${BLUR_DARKEN}`;
-      const bg=[`scale=${bw}:${bh}:force_original_aspect_ratio=increase:flags=${scaleFlags('area')}`,`crop=${bw}:${bh}`,
-        'boxblur=6:3',`scale=${t.w}:${t.h}:flags=${scaleFlags()}`,
-        `lutrgb=r=${out}:g=${out}:b=${out}`,'setsar=1'].join(',');
-      const fg=`scale=${sw}:${sh}:flags=${scaleFlags()},setsar=1`;
-      const head=parts.length?parts.join(',')+',':'';
-      return `${head}split=2[bg][fg];[bg]${bg}[bgo];[fg]${fg}[fgo];[bgo][fgo]overlay=${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)},setsar=1,fps=30`;
+      const grad=bgGradient||['#0c0d11','#232733'];
+      const c0='0x'+grad[0].slice(1), c1='0x'+grad[1].slice(1);
+      const x=evenDown((t.w-sw)/2), y=evenDown((t.h-sh)/2);
+      const fg=`[0:v]${parts.length?parts.join(',')+',':''}scale=${sw}:${sh}:flags=${scaleFlags()},setsar=1[fgo]`;
+      const filter=`[1:v]scale=${t.w}:${t.h},setsar=1[bgo];${fg};[bgo][fgo]overlay=${x}:${y},drawbox=x=${x}:y=${y}:w=${sw}:h=${sh}:color=black@0.6:t=3,setsar=1,fps=30`;
+      return {complex:true, lavfi:`gradients=s=${t.w}x${t.h}:c0=${c0}:c1=${c1}:x0=0:y0=0:x1=0:y1=${t.h}`, filter};
     }
     parts.push(`scale=${sw}:${sh}:flags=${scaleFlags()}`);
     if(sw!==t.w||sh!==t.h)parts.push(`pad=${t.w}:${t.h}:${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)}:color=black`);
   }
   parts.push('setsar=1','fps=30');
-  return parts.join(',');
+  return {complex:false, filter:parts.join(',')};
+}
+function vfArgs(vf){ return vf.complex?['-f','lavfi','-i',vf.lavfi,'-filter_complex',vf.filter]:['-vf',vf.filter]; }
+// Blur background sampling: average colors at several points of the segment,
+// combined by per-channel median so one flash frame can't hijack the
+// background. Darkened into a [top, bottom] gradient pair. Falls back to
+// fixed palette colors when sampling fails.
+async function sampleBgColors(){
+  const fallback=['#0c0d11','#232733'];
+  try{
+    const src=(typeof previewURL!=='undefined'&&previewURL)||$('preview')?.src;
+    if(!src) return fallback;
+    const v=document.createElement('video');
+    v.muted=true;v.playsInline=true;v.preload='auto';v.src=src;
+    await new Promise((res,rej)=>{v.onloadedmetadata=()=>res();v.onerror=()=>rej(new Error('metadata'));});
+    const d=Math.max(segDuration(),0.1), t0=trim.start, end=v.duration||t0+d;
+    const cv=document.createElement('canvas');cv.width=32;cv.height=32;
+    const cx=cv.getContext('2d',{willReadFrequently:true});
+    const cols=[];
+    for(const f of [0.1,0.3,0.5,0.7,0.9]){
+      v.currentTime=Math.min(t0+f*d,Math.max(0,end-0.05));
+      await new Promise(res=>{const to=setTimeout(res,3000);v.onseeked=()=>{clearTimeout(to);res();};});
+      cx.drawImage(v,0,0,32,32);
+      const px=cx.getImageData(0,0,32,32).data;
+      let r=0,g=0,b=0,n=0;
+      for(let i=0;i<px.length;i+=4){r+=px[i];g+=px[i+1];b+=px[i+2];n++;}
+      cols.push([r/n,g/n,b/n]);
+    }
+    const med=a=>{const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
+    const m=[med(cols.map(c=>c[0])),med(cols.map(c=>c[1])),med(cols.map(c=>c[2]))];
+    const hx=x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0');
+    return ['#'+m.map(x=>hx(x*0.45)).join(''),'#'+m.map(x=>hx(x*0.75)).join('')];
+  }catch{ return fallback; }
 }
 // Length compliance: warn only, never re-trim.
 const GENERIC_LIMITS_NOTE='X 2:20, Shorts 3:00, Reels 3:00 for reach, TikTok 10:00';
@@ -974,7 +1007,7 @@ function renderOutputs(r){
     }else{
       const t=socialTarget(o);
       const mb=(t.kbps+128)*d/8/1000;
-      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${(t.kbps/1000).toFixed(1)} Mb/s video + 128 kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
+      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / sampled gradient'}[aspectMode()]||'fit / black bars'}), ${(t.kbps/1000).toFixed(1)} Mb/s video + 128 kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
     }
     li.textContent=txt;if(!isAllChan&&!L.fits){li.className='over';over.push(o)}
     ul.appendChild(li);
@@ -1512,21 +1545,18 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
       };
     }else{
       const dx=evenDown((tw-dw)/2), dy=evenDown((th-dh)/2);
-      const bw=evenRound(tw/BLUR_DIV), bh=evenRound(th/BLUR_DIV);
-      const blurCanvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(bw,bh):document.createElement('canvas');
-      blurCanvas.width=bw;blurCanvas.height=bh;
-      const blurCtx=blurCanvas.getContext('2d');
-      const kCover=Math.max(bw/sw,bh/sh);
-      const cw=sw*kCover, ch=sh*kCover;
-      const cx=(bw-cw)/2, cy=(bh-ch)/2;
+      const gradCanvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(tw,th):document.createElement('canvas');
+      gradCanvas.width=tw;gradCanvas.height=th;
+      const gctx=gradCanvas.getContext('2d');
+      const [gc0,gc1]=bgGradient||['#0c0d11','#232733'];
+      const gr=gctx.createLinearGradient(0,0,0,th);
+      gr.addColorStop(0,gc0);gr.addColorStop(1,gc1);
+      gctx.fillStyle=gr;gctx.fillRect(0,0,tw,th);
       processFrame=(sample)=>{
-        sample.draw(blurCtx,sx,sy,sw,sh,cx,cy,cw,ch);
-        ctx.filter='blur(6px)';
-        ctx.drawImage(blurCanvas,0,0,tw,th);
-        ctx.filter='none';
-        ctx.fillStyle=`rgba(0,0,0,${(1-BLUR_DARKEN).toFixed(2)})`;
-        ctx.fillRect(0,0,tw,th);
+        ctx.drawImage(gradCanvas,0,0);
         sample.draw(ctx,sx,sy,sw,sh,dx,dy,dw,dh);
+        ctx.strokeStyle='rgba(0,0,0,0.6)';ctx.lineWidth=3;
+        ctx.strokeRect(dx,dy,dw,dh);
         return canvas;
       };
     }
@@ -1640,6 +1670,7 @@ async function runBatch(allowRetry){
   status.hidden=true;
   setMascotState('encoding');
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
+  if(mode==='blur') bgGradient=await sampleBgColors();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
   const isAllChan=$('allChan')?.checked;
@@ -1706,16 +1737,17 @@ async function runBatch(allowRetry){
       const [odw,odh]=cap720(s.dw,s.dh);
       const [otw,oth]=cap720(t.w||0,t.h||0);
       const tc={...t,w:otw,h:oth};
-      const vf=isDiscord?`${cropF}scale=${odw}:${odh}:flags=${scaleFlags()},fps=30`
-        :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
+      const vf=isDiscord?{complex:false,filter:`${cropF}scale=${odw}:${odh}:flags=${scaleFlags()},fps=30`}
+        :isChan?{complex:false,filter:`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`}
         :socialVf(tc,s.crop,mode);
+      const durV=vf.complex?['-t',segDuration().toFixed(3)]:dur;
       const passlog=`cpass_${o.file||o.id}`;
       const outName=`${o.file||o.id}.webm`;
       const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
       setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
-      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
+      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
       const webm=await engine.readFile(outName);
       return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:`${stem}_${o.file||o.name}.webm`,line:sizeLine(o.name,webm.byteLength,CHAN_CAP)};
     },
@@ -1747,8 +1779,10 @@ async function runBatch(allowRetry){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
       const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
+      const vf=socialVf(t,s.crop,mode);
+      const durV=vf.complex?['-t',segDuration().toFixed(3)]:dur;
       setPhase(`${tag}…`,from,span);
-      await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,'-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',out]);
+      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,'-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',out]);
       const mp4=await engine.readFile(out);
       const L=lengthCheck(o,segDuration());
       return {blob:new Blob([mp4.buffer],{type:'video/mp4'}),name:`${stem}_${o.file}.mp4`,line:`${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`)};
