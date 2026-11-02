@@ -43,7 +43,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
 .check{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;margin:0;background:#141824;border-radius:10px;color:#f5f6fb;cursor:pointer}
 .check input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--accent)}
 .check span{min-width:0;overflow-wrap:anywhere;font-size:.92rem;line-height:1.3}
-.aspect{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.aspect{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}
 #outSummary{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:.85rem;line-height:1.45}
 #outSummary li{margin:4px 0;overflow-wrap:anywhere}#outSummary .over{color:#f5c979}
 .h-nw{left:0;top:0}.h-ne{left:100%;top:0}.h-sw{left:0;top:100%}.h-se{left:100%;top:100%}
@@ -133,8 +133,16 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
+      <label class="check"><input type="radio" name="aspect" value="blur"><span>Blur — blurred background</span></label>
     </div>
-    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Blur keeps the whole picture and fills the bars with a blurred, darkened copy of the clip. Discord and 4chan always keep your clip's own shape.</p>
+    <label>Speed</label>
+    <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
+      <label class="check"><input type="radio" name="preset" value="veryfast" checked><span>Veryfast</span></label>
+      <label class="check"><input type="radio" name="preset" value="superfast"><span>Superfast</span></label>
+      <label class="check"><input type="radio" name="preset" value="ultrafast"><span>Ultrafast</span></label>
+    </div>
+    <p class="note">Faster finishes sooner but looks a little worse at the same file size. File sizes do not change. Applies to the MP4 files (Discord and Generic); the 4chan WebM is not affected.</p>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
     <p class="note warn" id="lengthWarn" hidden></p>
@@ -247,13 +255,21 @@ for(const o of OUTPUTS){
 }
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
 const checkedOutputs=()=>OUTPUTS.filter(o=>$('out-'+o.id).checked);
-const aspectMode=()=>document.querySelector('input[name=aspect]:checked')?.value==='fill'?'fill':'fit';
+const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked')?.value;return v==='fill'||v==='blur'?v:'fit'};
+// x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Generic. Never VP8.
+const X264_PRESETS=['veryfast','superfast','ultrafast'];
+const x264Preset=()=>{const v=document.querySelector('input[name=preset]:checked')?.value;return X264_PRESETS.includes(v)?v:'veryfast'};
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 // The shape IS the output: each Generic output has one fixed frame and bitrate.
 const socialTarget=o=>({w:o.w,h:o.h,shape:o.shape,kbps:o.kbps});
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
 // Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
 // Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
+// Blur: the Fit foreground over a blurred background made from the same clip. The background
+// branch downscales hard (1/8 of the frame, covering it), goes to linear light, box-blurs the
+// tiny frame, upscales back to the frame, then darkens and returns to gamma. The blur only ever
+// runs on the tiny frame. When the clip already matches the frame there are no bars: plain Fit.
+const BLUR_DIV=8, BLUR_DARKEN=0.55;
 function socialVf(t,c,mode){
   const parts=[];
   if(c)parts.push(`crop=${c.w}:${c.h}:${c.x}:${c.y}`);
@@ -266,6 +282,15 @@ function socialVf(t,c,mode){
     parts.push(`scale=${t.w}:${t.h}:flags=lanczos`);
   }else{
     const k=Math.min(t.w/fw,t.h/fh), sw=Math.min(t.w,evenRound(fw*k)), sh=Math.min(t.h,evenRound(fh*k));
+    if(mode==='blur'&&(sw!==t.w||sh!==t.h)){
+      const bw=evenRound(t.w/BLUR_DIV), bh=evenRound(t.h/BLUR_DIV), lin='gammaval(2.2)', out=`gammaval(0.4545)*${BLUR_DARKEN}`;
+      const bg=[`scale=${bw}:${bh}:force_original_aspect_ratio=increase:flags=area`,`crop=${bw}:${bh}`,'format=gbrp',
+        `lutrgb=r=${lin}:g=${lin}:b=${lin}`,'boxblur=6:3',`scale=${t.w}:${t.h}:flags=bilinear`,
+        `lutrgb=r=${out}:g=${out}:b=${out}`,'format=yuv420p','setsar=1'].join(',');
+      const fg=`scale=${sw}:${sh}:flags=lanczos,setsar=1`;
+      const head=parts.length?parts.join(',')+',':'';
+      return `${head}split=2[bg][fg];[bg]${bg}[bgo];[fg]${fg}[fgo];[bgo][fgo]overlay=${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)},setsar=1,fps=30`;
+    }
     parts.push(`scale=${sw}:${sh}:flags=lanczos`);
     if(sw!==t.w||sh!==t.h)parts.push(`pad=${t.w}:${t.h}:${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)}:color=black`);
   }
@@ -290,7 +315,7 @@ function renderOutputs(r){
     else if(o.id==='chan')txt=`4chan: ${r.cw}×${r.ch}, ~${r.chanVideo} kb/s VP8, no audio, two-pass — ${L.text}`;
     else{
       const t=socialTarget(o), mb=(t.kbps+SOCIAL_AUDIO_KBPS)*d/8/1000;
-      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${aspectMode()==='fill'?'fill / crop':'fit / black bars'}), ${t.kbps/1000} Mb/s video + ${SOCIAL_AUDIO_KBPS} kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
+      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${t.kbps/1000} Mb/s video + ${SOCIAL_AUDIO_KBPS} kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
     }
     li.textContent=txt;if(!L.fits){li.className='over';over.push(o)}
     ul.appendChild(li);
@@ -514,7 +539,7 @@ async function runBatch(allowRetry){
   const outs=checkedOutputs();
   if(busy||!selected||!duration||!trim.ok||!outs.length)return;
   busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
-  const s=estimate(), mode=aspectMode();
+  const s=estimate(), mode=aspectMode(), preset=x264Preset();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
   const DLOG='dpass', CLOG='cpass';
@@ -539,7 +564,7 @@ async function runBatch(allowRetry){
     const encoders={
       async discord(tag,from,span){
         const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=lanczos,fps=30`;
-        const x264=['-c:v','libx264','-preset','veryfast','-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG,...thr];
+        const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG,...thr];
         setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
         await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
         setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
@@ -563,7 +588,7 @@ async function runBatch(allowRetry){
       async social(o,tag,from,span){
         const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
         setPhase(`${tag}…`,from,span);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset','veryfast','-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60','-pix_fmt','yuv420p',...thr,'-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60','-pix_fmt','yuv420p',...thr,'-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
         const mp4=await engine.readFile(out);
         saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
         const L=lengthCheck(o,segDuration());

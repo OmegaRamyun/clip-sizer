@@ -16,7 +16,7 @@ Choose a video, optionally trim and crop it, check the outputs you want, review 
 - 4chan: WebM / VP8 / no audio, target 3.8 MB (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm`
 
 ## Generic outputs (specs as of Nov 2026 — platforms change these; check before a big upload)
-Three generic shapes replace per-service boxes: one file per shape, one length limit for all of them. All are MP4, H.264 High (x264 preset veryfast, yuv420p, keyframe every 60 frames, maxrate 1.2x, bufsize 2x, faststart) + AAC 128 kb/s stereo, 30 fps, single pass. They are NOT size-budgeted: size is not the binding limit where these files go, length and shape are. Each uses a fixed quality bitrate and the app reports the real size afterwards. Unchecked by default.
+Three generic shapes replace per-service boxes: one file per shape, one length limit for all of them. All are MP4, H.264 High (x264 preset from the Speed setting, default veryfast, yuv420p, keyframe every 60 frames, maxrate 1.2x, bufsize 2x, faststart) + AAC 128 kb/s stereo, 30 fps, single pass. They are NOT size-budgeted: size is not the binding limit where these files go, length and shape are. Each uses a fixed quality bitrate and the app reports the real size afterwards. Unchecked by default.
 
 | Output | Frame | Video | Audio | File |
 |---|---|---|---|---|
@@ -36,7 +36,10 @@ Three generic shapes replace per-service boxes: one file per shape, one length l
 **Fit vs Fill** (one setting for all Generic outputs: how a clip that doesn't match the output shape is converted into it; Discord/4chan always keep your clip's own shape):
 - **Fit — black bars** (default): scales the clip to fit inside the frame and pads with black. Nothing is cut and nothing is stretched. A landscape clip in the 9:16 frame gets bars above and below.
 - **Fill — crop to frame**: center-crops the clip to the frame's shape, then scales it to fill the frame. Fills the screen; loses the edges.
-Order: your manual crop first, then fit/fill, then scale to the frame, then 30 fps.
+- **Blur — blurred background**: like Fit (whole picture, nothing cut, nothing stretched), but the bars are a blurred, darkened copy of the clip instead of black. Made for 16:9 game clips going to Vertical. The background is cheap by construction: the clip is shrunk to 1/8 of the frame (covering it), converted to linear light, box-blurred while tiny, scaled back up to the frame, darkened and converted back. If the clip already matches the output shape there are no bars, and Blur is the same as Fit.
+Order: your manual crop first, then fit/fill/blur, then scale to the frame, then 30 fps.
+
+**Speed** (Veryfast default / Superfast / Ultrafast): the x264 preset for the MP4 files — Discord (both passes) and all Generic outputs. Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP8) is not affected.
 
 **Length warnings.** Every checked Generic output shows whether the trimmed clip fits the 2:00 fits-everywhere limit. Over 2:00, a warning names the outputs and the per-service limits. The app never re-trims your clip for you, and Go still runs (you might be splitting the clip yourself, or posting only where longer clips are allowed).
 
