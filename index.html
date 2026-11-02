@@ -58,7 +58,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -652,6 +652,48 @@ function saveBlob(blob,name){
   a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('links').appendChild(a);
 }
+let jszipModule=null, jszipLoading=null;
+async function loadJSZip(){
+  if(window.JSZip)return window.JSZip;
+  if(jszipModule)return jszipModule;
+  if(jszipLoading)return jszipLoading;
+  jszipLoading=(async()=>{
+    try{
+      const mod=await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm');
+      jszipModule=mod?.default||mod?.JSZip||mod;
+      if(typeof jszipModule==='function')return jszipModule;
+    }catch(e){
+      console.info('[clip-sizer] JSZip ESM import failed, trying script fallback:',e?.message||e);
+    }
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      s.onload=()=>{
+        if(window.JSZip){
+          jszipModule=window.JSZip;
+          resolve(window.JSZip);
+        }else{
+          reject(new Error('JSZip not found on window after script load'));
+        }
+      };
+      s.onerror=err=>reject(new Error('Failed to load JSZip from CDN: '+(err?.message||'network error')));
+      document.head.appendChild(s);
+    });
+  })();
+  try{
+    return await jszipLoading;
+  }finally{
+    jszipLoading=null;
+  }
+}
+async function buildZip(outputs,stem){
+  const JSZip=await loadJSZip();
+  const zip=new JSZip();
+  for(const out of outputs){
+    zip.file(out.name,out.blob);
+  }
+  return await zip.generateAsync({type:'blob',compression:'STORE'});
+}
 const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — OVER the ${fmtBytes(cap)} hard cap, it may not upload; trim shorter and try again.`:` (under the ${fmtBytes(cap)} cap)`);
 // ---- Hardware engine (WebCodecs + Mediabunny) ----
 let mb=null, mbVersion=null, mbLoading=null;
@@ -928,16 +970,17 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
     videoKbps=Math.max(minKbps,Math.floor(videoKbps*ratio*0.95));
   }
 
-  saveBlob(finalBlob,outName);
+  let line;
   if(isAllChan||o.budget){
-    return sizeLine(o.name,finalBlob.size,cap);
+    line=sizeLine(o.name,finalBlob.size,cap);
   }else{
     if(t.limMB!==null&&finalBlob.size>t.limMB*1e6){
       console.warn(`[clip-sizer] ${o.name} output (${finalBlob.size} bytes) exceeded size limit (${t.limMB*1e6} bytes)`);
     }
     const L=lengthCheck(o,d);
-    return `${o.name}: ${fmtBytes(finalBlob.size)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
+    line=`${o.name}: ${fmtBytes(finalBlob.size)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
   }
+  return {blob:finalBlob,name:outName,line};
 }
 
 async function runBatch(allowRetry){
@@ -1055,8 +1098,7 @@ async function runBatch(allowRetry){
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
       await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
       const webm=await engine.readFile(outName);
-      saveBlob(new Blob([webm.buffer],{type:'video/webm'}),`${stem}_${o.file||o.name}.webm`);
-      return sizeLine(o.name,webm.byteLength,CHAN_CAP);
+      return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:`${stem}_${o.file||o.name}.webm`,line:sizeLine(o.name,webm.byteLength,CHAN_CAP)};
     },
     async discord(tag,from,span){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
@@ -1068,8 +1110,7 @@ async function runBatch(allowRetry){
       setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
       await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart','discord.mp4']);
       const mp4=await engine.readFile('discord.mp4');
-      saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
-      return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
+      return {blob:new Blob([mp4.buffer],{type:'video/mp4'}),name:stem+'_Discord.mp4',line:sizeLine('Discord',mp4.byteLength,DISCORD_CAP)};
     },
     async chan(tag,from,span){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
@@ -1081,8 +1122,7 @@ async function runBatch(allowRetry){
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
       await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
       const webm=await engine.readFile('4chan.webm');
-      saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
-      return sizeLine('4chan',webm.byteLength,CHAN_CAP);
+      return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:stem+'_4chan.webm',line:sizeLine('4chan',webm.byteLength,CHAN_CAP)};
     },
     async social(o,tag,from,span){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
@@ -1092,7 +1132,6 @@ async function runBatch(allowRetry){
       setPhase(`${tag}…`,from,span);
       await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,...audioArgs,'-movflags','+faststart',out]);
       const mp4=await engine.readFile(out);
-      saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
       if(t.limMB!==null){
         const limitBytes=t.limMB*1e6;
         if(mp4.byteLength>limitBytes){
@@ -1100,46 +1139,63 @@ async function runBatch(allowRetry){
         }
       }
       const L=lengthCheck(o,segDuration());
-      return `${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
+      return {blob:new Blob([mp4.buffer],{type:'video/mp4'}),name:`${stem}_${o.file}.mp4`,line:`${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`)};
     },
   };
 
   const lines=[];let failed=0,made=0,from=0;
+  const madeOutputs=[];
   try{
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
-      let line=null;
+      let res=null;
       const canHw=await canHardwareEncodeOutput(o,s,segDuration());
       if(canHw){
         try{
-          line=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
+          res=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
           made++;
+          madeOutputs.push({blob:res.blob,name:res.name});
+          lines.push(res.line);
         }catch(hwErr){
           console.info(`[clip-sizer] hardware encode failed for ${o.name}, falling back to CPU:`,hwErr?.message||hwErr);
-          line=null;
+          res=null;
         }
       }
-      if(line===null){
+      if(res===null){
         try{
           await ensureCpuEngine();
           showCpuMode();
           if(isAllChan){
-            line=await encoders.allChan(o,tag,from,span);made++;
+            res=await encoders.allChan(o,tag,from,span);made++;
           }else if(o.budget){
-            line=await encoders[o.id](tag,from,span);made++;
+            res=await encoders[o.id](tag,from,span);made++;
           }else{
-            line=await encoders.social(o,tag,from,span);made++;
+            res=await encoders.social(o,tag,from,span);made++;
           }
-        }catch(e){failed++;line=`${o.name}: Encoding failed: `+(e?.message||e)}
+          madeOutputs.push({blob:res.blob,name:res.name});
+          lines.push(res.line);
+        }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
         finally{if(engine)await removeFiles(engine,tempsFor(o))}
       }
-      lines.push(line);
       from+=span;
     }
     phase={label:'',from:0,span:0};
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
+    if(madeOutputs.length===1){
+      saveBlob(madeOutputs[0].blob,madeOutputs[0].name);
+    }else if(madeOutputs.length>1){
+      try{
+        const zipBlob=await buildZip(madeOutputs,stem);
+        saveBlob(zipBlob,`${stem}_clips.zip`);
+      }catch(zipErr){
+        console.warn('[clip-sizer] zip creation failed, falling back to per-output links:',zipErr?.message||zipErr);
+        for(const item of madeOutputs){
+          saveBlob(item.blob,item.name);
+        }
+      }
+    }
   }catch(e){
     phase={label:'',from:0,span:0};
     status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
@@ -1308,6 +1364,8 @@ window.__aacEncoderAvailable=()=>aacEncoderAvailable;
 window.__canHardwareEncodeOutput=canHardwareEncodeOutput;
 window.__setHardwareMode=setHardwareMode;
 window.__showCpuMode=showCpuMode;
+window.__loadJSZip=loadJSZip;
+window.__buildZip=buildZip;
 console.info(`[clip-sizer] boot: setup=${setupState()||'none'}, crossOriginIsolated=${self.crossOriginIsolated===true}, restartedThisTab=${!!store.get('sessionStorage',RESTARTED_KEY)}`);
 showSetup(!setupState());
 </script>

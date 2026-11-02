@@ -15,6 +15,8 @@ Choose a video, optionally trim and crop it, check the outputs you want, review 
 - Discord: MP4 / H.264 / AAC stereo (128 kb/s), target 19 MB (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
 - 4chan: WebM / VP9 / no audio, target 3.8 MB (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan)
 
+When 2 or more outputs are made, finished files are delivered as ONE zip file (`name_clips.zip`), assembled using STORE (no recompression) so phone CPU/battery are not burned on already-compressed video. Single-output batches deliver that file directly. If zip creation fails, individual download links are served as a fallback.
+
 ## Formats & Socials pack (specs as of Nov 2026 — platforms change these; check before a big upload)
 Pick Formats offers three choices: Discord (H.264 + AAC 128k), 4chan (Mute VP9), and Socials (3-pack, H.264 + AAC 128k), plus a debug "All 4chan" override flag.
 
@@ -87,7 +89,9 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Explicit states, preflight, and stage-specific errors.** Engine readiness (`idle | loading | ready | failed`) and file readiness (`none | picked | verified | stale`) are tracked explicitly rather than inferred from object existence or error strings. At Go time, a lightweight preflight probe verifies that the picked file handle remains readable before encoding starts. If a stale handle fails to re-read (common on mobile after backgrounding or cloud picks), the app acknowledges that the preview succeeded, explains that the file must be re-read for encoding, and prompts to choose the video again without auto-retrying a dead handle or suggesting unrelated video shortening. Auto-retry is restricted exclusively to encoder download failures.
 
-**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware`).
+**Single zip download per batch (STORE compression).** When a batch finishes with 2 or more outputs, Clip Sizer packages them into a single zip file (`name_clips.zip`) using JSZip (loaded lazily on batch completion from jsDelivr, version 3.10.1). Outputs are packaged using STORE (level 0 / uncompressed), avoiding phone CPU and battery drain from recompressing video. Batches producing exactly 1 output deliver that file directly. If zip creation or JSZip loading fails, the app falls back to individual download links so outputs are never lost.
+
+**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip`).
 
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
