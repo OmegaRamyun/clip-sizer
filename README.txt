@@ -34,7 +34,7 @@ The Socials pack replaces the three separate shape checkboxes with ONE checkbox 
 | Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo | `name_Square.mp4` |
 
 **"All 4chan" debug flag (CPU path):**
-A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap). Frame shapes and composition (Fit / Fill / Blur) remain intact.
+A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap). Frame shapes and composition (Fit / Fill / Blur) remain intact, with frames capped at 720 on the long side.
 
 **One file posts everywhere** (at 2:00 or under):
 - Vertical 9:16 posts to X, YouTube Shorts, Instagram Reels and TikTok.

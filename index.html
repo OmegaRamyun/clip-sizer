@@ -500,7 +500,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + cap720</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -902,6 +902,16 @@ function socialTarget(o){
   return {w:o.w, h:o.h, shape:o.shape, kbps:o.kbps};
 }
 
+// All 4chan override: shape-preserving 720 cap. Same long-side cap as the
+// normal 4chan path, but the output keeps its own shape (a vertical Socials
+// frame stays vertical) instead of taking the source-aspect chan dims.
+function cap720(w,h){
+  const m=Math.max(w,h);
+  if(m<=720) return [w,h];
+  const k=720/m;
+  return [evenRound(w*k),evenRound(h*k)];
+}
+
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
 // Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
 // Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
@@ -954,7 +964,9 @@ function renderOutputs(r){
     const li=document.createElement('li'), L=lengthCheck(o,d);
     let txt;
     if(isAllChan){
-      txt=`${o.name}: ${o.w||(o.id==='discord'?r.dw:r.cw)}×${o.h||(o.id==='discord'?r.dh:r.ch)}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 3.8 MB target`;
+      const [bw,bh]=[o.w||(o.id==='discord'?r.dw:r.cw),o.h||(o.id==='discord'?r.dh:r.ch)];
+      const [cw2,ch2]=cap720(bw,bh);
+      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 3.8 MB target`;
     }else if(o.id==='discord'){
       txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 128 kb/s audio, two-pass — ${L.text}`;
     }else if(o.id==='chan'){
@@ -1424,8 +1436,9 @@ async function canHardwareEncodeOutput(o, s, d){
   const isDiscord=o.id==='discord';
   const isChan=o.id==='chan';
   const t=socialTarget(o);
-  const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
-  const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  let tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
+  let th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  if(isAllChan)[tw,th]=cap720(tw,th);
   const codec=(isAllChan||isChan)?'vp9':'avc';
   const kbps=(isAllChan||isChan)?s.chanVideo:isDiscord?s.discordVideo:t.kbps;
   const okVideo=await canHardwareEncode(codec,tw,th,kbps*1000);
@@ -1439,8 +1452,9 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   const isAllChan=$('allChan')?.checked;
   const isDiscord=o.id==='discord', isChan=o.id==='chan';
   const t=socialTarget(o);
-  const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
-  const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  let tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
+  let th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  if(isAllChan)[tw,th]=cap720(tw,th);
   const isVp9=isAllChan||isChan;
   const videoCodec=isVp9?'vp9':'avc';
   const codecLabel=isVp9?'VP9':'H.264';
@@ -1689,9 +1703,12 @@ async function runBatch(allowRetry){
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
       const isDiscord=o.id==='discord', isChan=o.id==='chan';
       const t=socialTarget(o);
-      const vf=isDiscord?`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`
+      const [odw,odh]=cap720(s.dw,s.dh);
+      const [otw,oth]=cap720(t.w||0,t.h||0);
+      const tc={...t,w:otw,h:oth};
+      const vf=isDiscord?`${cropF}scale=${odw}:${odh}:flags=${scaleFlags()},fps=30`
         :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
-        :socialVf(t,s.crop,mode);
+        :socialVf(tc,s.crop,mode);
       const passlog=`cpass_${o.file||o.id}`;
       const outName=`${o.file||o.id}.webm`;
       const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
