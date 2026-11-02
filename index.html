@@ -48,12 +48,15 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
 #outSummary{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:.85rem;line-height:1.45}
 #outSummary li{margin:4px 0;overflow-wrap:anywhere}#outSummary .over{color:#f5c979}
 .h-nw{left:0;top:0}.h-ne{left:100%;top:0}.h-sw{left:0;top:100%}.h-se{left:100%;top:100%}
+.stamp{font-size:.82rem;color:var(--muted);margin:-6px 0 14px;line-height:1.4}
 </style>
 </head>
 <body>
 <main>
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
+  <!-- Release build stamp: update date + feature tags with each release -->
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version</div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
       <span class="update-msg">Update available</span>
