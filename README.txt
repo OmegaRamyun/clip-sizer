@@ -91,7 +91,9 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Single zip download per batch (STORE compression).** When a batch finishes with 2 or more outputs, Clip Sizer packages them into a single zip file (`name_clips.zip`) using JSZip (loaded lazily on batch completion from jsDelivr, version 3.10.1). Outputs are packaged using STORE (level 0 / uncompressed), avoiding phone CPU and battery drain from recompressing video. Batches producing exactly 1 output deliver that file directly. If zip creation or JSZip loading fails, the app falls back to individual download links so outputs are never lost.
 
-**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip`).
+**Visual polish pass (Signal Protocol Eva/NERV terminal theme).** The interface adopts the Signal Protocol Eva/NERV terminal-parody palette (warm blacks `#0c0d11`, solid charcoal panels `#15171e`, glowing terminal amber primary `#f59e0b`, diagnostic teal telemetry `#14b8a6` / `#2dd4bf`, signal red error `#f87171` / `#ef4444`, and warning amber `#fbbf24`). Built strictly for legibility and touch ergonomics: solid opaque surfaces, crisp high-contrast typography, interactive touch targets ≥44px in both dimensions across all controls (buttons, inputs, and selection rows), and snappy Earshot-character micro-motion (≤250ms with overshoot easing).
+
+**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish`).
 
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
