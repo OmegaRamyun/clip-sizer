@@ -182,6 +182,8 @@ const $ = id => document.getElementById(id);
 const fileInput=$('video'), go=$('go'), status=$('status'), bar=$('bar');
 const preview=$('preview'), overlay=$('overlay'), cropbox=$('cropbox'), stage=$('stage');
 let selected=null, duration=0, width=0, height=0, ffmpeg=null, installPrompt=null, previewURL=null;
+let engineState='idle'; // 'idle' | 'loading' | 'ready' | 'failed'
+let fileState='none';   // 'none' | 'picked' | 'verified' | 'stale'
 let trim={start:0,end:0,ok:true};
 let crop={x:0,y:0,w:0,h:0};
 const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=3.8e6, CHAN_CAP=3.89e6;
@@ -340,7 +342,8 @@ function updateGo(){
   const n=checkedOutputs().length;
   go.textContent=n?`Go — make ${n} file${n===1?'':'s'}`:'Go';
   $('outMsg').textContent='Nothing to make: check at least one output above.';$('outMsg').hidden=n>0;
-  go.disabled=busy||!selected||!duration||!trim.ok||!n;
+  const fileOk=selected&&fileState!=='none'&&fileState!=='stale';
+  go.disabled=busy||!fileOk||!duration||!trim.ok||!n;
 }
 
 // ---- Trim ----
@@ -470,14 +473,15 @@ $('mode').addEventListener('input',syncMode);syncMode();
 
 fileInput.addEventListener('change',()=>{
   selected=fileInput.files?.[0]||null;
+  fileState=selected?'picked':'none';
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('results').hidden=true;$('links').innerHTML='';
   go.disabled=true;duration=0;$('quickNote').hidden=true;
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
-  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';return}
+  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';updateGo();return}
   previewURL=URL.createObjectURL(selected);
   preview.onloadedmetadata=()=>{
     duration=preview.duration;width=preview.videoWidth;height=preview.videoHeight;
-    if(!Number.isFinite(duration)||!width||!height){status.textContent='Could not read this video. Try another file.';return}
+    if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();return}
     $('duration').textContent=fmtTime(duration);
     $('resolution').textContent=`${width} × ${height}`;
     stage.style.aspectRatio=`${width} / ${height}`;
@@ -487,9 +491,11 @@ fileInput.addEventListener('change',()=>{
     $('details').hidden=false;$('editor').hidden=false;$('tradeoff').hidden=false;
     crop={x:0,y:0,w:width,h:height};
     applyTrim(false);renderCrop();
+    fileState='picked';
     status.textContent='Ready. Adjust trim, crop, and the quality slider if you like, then press Go.';
+    updateGo();
   };
-  preview.onerror=()=>{status.textContent='Could not read this video. Try another file.'};
+  preview.onerror=()=>{fileState='none';status.textContent='Could not read this video. Try another file.';updateGo()};
   preview.src=previewURL;
 });
 
@@ -511,7 +517,8 @@ let engineMT=false, ffWorker=null;
 // that imports the library's worker can.
 const ffWorkerURL=()=>ffWorker||(ffWorker=URL.createObjectURL(new Blob([`import '${FF_WORKER}';`],{type:'text/javascript'})));
 async function loadFFmpeg(){
-  if(ffmpeg)return ffmpeg;
+  if(engineState==='ready'&&ffmpeg)return ffmpeg;
+  engineState='loading';
   status.textContent='Loading video encoder (first launch downloads about 30–40 MB)…';
   const inst=new FFmpeg();
   inst.on('log',({message})=>{
@@ -527,8 +534,14 @@ async function loadFFmpeg(){
     const cfg={classWorkerURL:ffWorkerURL(),coreURL:await toBlobURL(files.core,'text/javascript'),wasmURL:await toBlobURL(files.wasm,'application/wasm')};
     if(mt)cfg.workerURL=await toBlobURL(files.worker,'text/javascript');
     await inst.load(cfg);
-  }catch(e){throw new Error('Encoder download failed ('+(e?.message||e)+'). Check connection and press Go again to retry.')}
-  ffmpeg=inst;engineMT=mt;
+  }catch(e){
+    ffmpeg=null;
+    engineState='failed';
+    throw new Error('Encoder download failed ('+(e?.message||e)+'). Check connection and press Go again to retry.');
+  }
+  ffmpeg=inst;
+  engineMT=mt;
+  engineState='ready';
   console.info(`[clip-sizer] encoder loaded: ${mt?'core-mt, -threads '+ENCODE_THREADS:'core (single-threaded)'}; crossOriginIsolated=${self.crossOriginIsolated===true}`);
   return ffmpeg;
 }
@@ -547,7 +560,47 @@ const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — 
 async function runBatch(allowRetry){
   applyTrim();
   const outs=checkedOutputs();
-  if(busy||!selected||!duration||!trim.ok||!outs.length)return;
+  if(busy)return;
+  if(!selected||fileState==='none'){
+    status.textContent='Select a video to begin.';
+    updateGo();
+    return;
+  }
+  if(fileState==='stale'){
+    status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+    updateGo();
+    return;
+  }
+  if(!outs.length){
+    status.textContent='Nothing to make: check at least one output above.';
+    updateGo();
+    return;
+  }
+  if(!duration||!trim.ok)return;
+
+  // Preflight check: verify file handle is readable before attempting encode or full read
+  let probeOk=false;
+  try{
+    const slice=selected.slice(0,1);
+    if(typeof slice.arrayBuffer==='function')await slice.arrayBuffer();
+    await new Promise((resolve,reject)=>{
+      const fr=new FileReader();
+      fr.onload=()=>resolve();
+      fr.onerror=()=>reject(fr.error||new Error('preflight failed'));
+      fr.readAsArrayBuffer(slice);
+    });
+    probeOk=true;
+  }catch{
+    probeOk=false;
+  }
+  if(!probeOk){
+    fileState='stale';
+    status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+    updateGo();
+    return;
+  }
+  fileState='verified';
+
   busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
@@ -559,10 +612,29 @@ async function runBatch(allowRetry){
   const tempsFor=o=>o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
   let engine=null;
   try{
-    engine=await loadFFmpeg();
-    const thr=engineMT?['-threads',String(ENCODE_THREADS)]:[]; // encoder thread cap, multithreaded core only
-    status.textContent='Reading source video…';
-    await engine.writeFile(input,await fetchFile(selected));
+    try{
+      engine=await loadFFmpeg();
+    }catch(err){
+      if(allowRetry&&engineState==='failed'){
+        ffmpeg=null;
+        pendingRetry=true;
+        status.textContent='Encoder wasn\'t ready — downloading it now and retrying…';
+      }else{
+        status.textContent=err?.message||'Encoder download failed. Check connection and press Go again to retry.';
+      }
+    }
+    if(engineState!=='failed'){
+      const thr=engineMT?['-threads',String(ENCODE_THREADS)]:[]; // encoder thread cap, multithreaded core only
+      status.textContent='Reading source video…';
+      let fileBuffer;
+      try{
+        fileBuffer=await fetchFile(selected);
+      }catch{
+        fileState='stale';
+        status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+      }
+      if(fileState!=='stale'){
+        await engine.writeFile(input,fileBuffer);
     const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
     phaseDur=Math.max(segDuration(),0.1);
     // Input seeking (-ss before -i) and output duration (-t); omitted when not trimmed.
@@ -610,7 +682,7 @@ async function runBatch(allowRetry){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       try{
         lines.push(o.budget?await encoders[o.id](tag,from,span):await encoders.social(o,tag,from,span));made++;
-      }catch(e){if(/not loaded/i.test(e?.message||''))throw e;failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
+      }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
       finally{await removeFiles(engine,tempsFor(o))}
       from+=span;
     }
@@ -618,13 +690,18 @@ async function runBatch(allowRetry){
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
-  }catch(e){phase={label:'',from:0,span:0};if(allowRetry&&/not loaded/i.test(e?.message||'')){ffmpeg=null;pendingRetry=true;status.textContent='Encoder wasn\'t ready — downloading it now and retrying…';}else status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.'}
-  finally{
+    }}
+  }catch(e){
+    phase={label:'',from:0,span:0};
+    status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
+  }finally{
     if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
     busy=false;updateGo();
   }
   if(pendingRetry){pendingRetry=false;runBatch(false);}
 }
+window.__engineState=()=>engineState;
+window.__fileState=()=>fileState;
 go.addEventListener('click',()=>runBatch(true));
 updateGo();
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});

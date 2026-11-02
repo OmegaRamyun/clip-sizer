@@ -57,6 +57,8 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Update check on start.** On startup, Clip Sizer checks whether a newer service worker is available. When an update is ready, a non-blocking prompt offers a Reload button to apply it at your convenience. The app never reloads automatically, so an in-progress encode is never interrupted. Tapping Dismiss hides the prompt for the current session.
 
+**Explicit states, preflight, and stage-specific errors.** Engine readiness (`idle | loading | ready | failed`) and file readiness (`none | picked | verified | stale`) are tracked explicitly rather than inferred from object existence or error strings. At Go time, a lightweight preflight probe verifies that the picked file handle remains readable before encoding starts. If a stale handle fails to re-read (common on mobile after backgrounding or cloud picks), the app acknowledges that the preview succeeded, explains that the file must be re-read for encoding, and prompts to choose the video again without auto-retrying a dead handle or suggesting unrelated video shortening. Auto-retry is restricted exclusively to encoder download failures.
+
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
 - Bitrates are budgeted conservatively below the stated limits; exact size can still vary with container overhead and encoder behavior. Check the resulting file size before uploading.
