@@ -332,10 +332,9 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   display: block;
   width: var(--mascot-size);
   height: var(--mascot-size);
-  background-image: url('assets/paracelsus-mascot.png');
-  background-size: var(--mascot-size) var(--mascot-size);
+  background-image: url('assets/paracelsus-chibi-sheet.png');
+  background-size: calc(var(--mascot-size) * 3) calc(var(--mascot-size) * 2);
   background-repeat: no-repeat;
-  border-radius: 50%;
   pointer-events: none;
   animation: mascot-bob 2.6s ease-in-out infinite;
   transform-origin: center bottom;
@@ -360,11 +359,15 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   60% { transform: translateY(-3px); }
 }
 
-/* Single portrait: every emote shows the same face; motion comes from the animations */
-.mascot-avatar[data-emote] { background-position: 0 0; }
-.mascot-avatar[data-emote="happy"] { animation: mascot-bounce 0.8s ease-in-out infinite; }
-.mascot-avatar[data-emote="blush"] { animation: mascot-blush-anim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
-.mascot-avatar[data-emote="dizzy"] { animation: mascot-dizzy-anim 0.6s ease-in-out infinite; }
+/* Chibi sheet: 3 columns x 2 rows. Row 1: smile, nervous, shocked. Row 2: sick, grin, prayer. */
+.mascot-avatar[data-emote="neutral"]    { background-position: 0 0; }
+.mascot-avatar[data-emote="smug"]       { background-position: 0 0; }
+.mascot-avatar[data-emote="happy"]      { background-position: calc(-2 * var(--mascot-size)) calc(-1 * var(--mascot-size)); animation: mascot-bounce 0.8s ease-in-out infinite; }
+.mascot-avatar[data-emote="shocked"]    { background-position: calc(-2 * var(--mascot-size)) 0; }
+.mascot-avatar[data-emote="blush"]      { background-position: calc(-2 * var(--mascot-size)) calc(-1 * var(--mascot-size)); animation: mascot-blush-anim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.mascot-avatar[data-emote="dizzy"]      { background-position: 0 calc(-1 * var(--mascot-size)); animation: mascot-dizzy-anim 0.6s ease-in-out infinite; }
+.mascot-avatar[data-emote="nervous"]    { background-position: calc(-1 * var(--mascot-size)) 0; }
+.mascot-avatar[data-emote="determined"] { background-position: calc(-1 * var(--mascot-size)) calc(-1 * var(--mascot-size)); }
 
 @media (prefers-reduced-motion: reduce) {
   .mascot-avatar,
@@ -507,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v33</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v34</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
