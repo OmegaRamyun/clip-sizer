@@ -13,7 +13,8 @@ main{max-width:720px;margin:auto;padding:24px 16px 48px}h1{font-size:2rem;margin
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}
 input[type=file]{width:100%;padding:14px;border:1px dashed #626b82;border-radius:12px;background:#141824;color:#fff}
 button,.download{border:0;border-radius:12px;padding:14px 18px;background:var(--accent);color:#171323;font-weight:750;font-size:1rem;text-decoration:none;display:inline-block;min-height:44px}
-button:disabled{opacity:.45}button.secondary{background:#33394b;color:#fff}#setupAgain[hidden]{display:none}
+button:disabled{opacity:.45}button.secondary{background:#33394b;color:#fff}#setupAgain[hidden],#updatePrompt[hidden]{display:none}
+.update-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.update-msg{font-weight:600;font-size:1rem;color:#f5f6fb}
 .actions{display:flex;gap:10px;flex-wrap:wrap}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .stat{background:#141824;border-radius:10px;padding:12px}.stat small{display:block;color:var(--muted);margin-bottom:5px}
 .stat strong{font-size:1.05rem;overflow-wrap:anywhere}
@@ -53,6 +54,15 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
 <main>
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
+  <div class="panel" id="updatePrompt" hidden>
+    <div class="update-bar">
+      <span class="update-msg">Update available</span>
+      <div class="actions">
+        <button type="button" id="updateReload">Reload</button>
+        <button type="button" class="secondary" id="updateDismiss">Dismiss</button>
+      </div>
+    </div>
+  </div>
   <section class="panel" id="setup" hidden>
     <h2>First setup</h2>
     <p>Clip Sizer downloads FFMPEG WASM (about 30–40 MB) once, then restarts.</p>
@@ -619,7 +629,42 @@ go.addEventListener('click',()=>runBatch(true));
 updateGo();
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
 $('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
-if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+// ---- Update prompt & Service Worker update check on start ----
+let updateDismissed=false;
+function showUpdatePrompt(){
+  if(updateDismissed)return;
+  const p=$('updatePrompt');
+  if(p)p.hidden=false;
+}
+function hideUpdatePrompt(){
+  const p=$('updatePrompt');
+  if(p)p.hidden=true;
+  updateDismissed=true;
+}
+$('updateReload')?.addEventListener('click',()=>location.reload());
+$('updateDismiss')?.addEventListener('click',hideUpdatePrompt);
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  let hadController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(hadController)showUpdatePrompt();
+    hadController=true;
+  });
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+    const trackWorker=w=>{
+      if(!w)return;
+      w.addEventListener('statechange',()=>{
+        if(w.state==='installed'&&(navigator.serviceWorker.controller||hadController)){
+          showUpdatePrompt();
+        }
+      });
+    };
+    if(reg.waiting&&(navigator.serviceWorker.controller||hadController))showUpdatePrompt();
+    if(reg.installing)trackWorker(reg.installing);
+    reg.addEventListener('updatefound',()=>trackWorker(reg.installing));
+    reg.update?.().catch(()=>{});
+  }).catch(()=>{});
+}
 
 // ---- First setup (first run per browser/device) ----
 // Download FFMPEG -> restart once -> app. The download warms the browser cache with the same

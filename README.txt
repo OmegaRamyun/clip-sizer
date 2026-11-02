@@ -55,6 +55,8 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Multithreaded encoding.** After First setup, browsers that support it use the multithreaded FFmpeg.wasm core (`@ffmpeg/core-mt`), with encoder threads capped at 4 (`ENCODE_THREADS` in index.html) to limit memory use on phones. The multithreaded core needs a cross-origin isolated page, and GitHub Pages cannot set the headers for that, so `sw.js` adds `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` to the app's own responses. It does not touch requests to other sites. Isolation starts on the first page load after the service worker is installed, which is why setup restarts once. If isolation is not available, the app quietly uses the single-threaded core. Encode settings are the same in both modes; the multithreaded core only adds `-threads 4`.
 
+**Update check on start.** On startup, Clip Sizer checks whether a newer service worker is available. When an update is ready, a non-blocking prompt offers a Reload button to apply it at your convenience. The app never reloads automatically, so an in-progress encode is never interrupted. Tapping Dismiss hides the prompt for the current session.
+
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
 - Bitrates are budgeted conservatively below the stated limits; exact size can still vary with container overhead and encoder behavior. Check the resulting file size before uploading.
