@@ -58,7 +58,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -158,6 +158,12 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
       <label class="check"><input type="radio" name="preset" value="ultrafast"><span>Ultrafast</span></label>
     </div>
     <p class="note">Faster finishes sooner but looks a little worse at the same file size. File sizes do not change. Applies to the MP4 files (Discord and Generic); the 4chan WebM is not affected.</p>
+    <label>Performance</label>
+    <div class="checks" id="perfChecks">
+      <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
+      <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
+      <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
+    </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
     <p class="note warn" id="lengthWarn" hidden></p>
@@ -283,10 +289,11 @@ const socialTarget=o=>({w:o.w,h:o.h,shape:o.shape,kbps:o.kbps});
 // Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
 // Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
 // Blur: the Fit foreground over a blurred background made from the same clip. The background
-// branch downscales hard (1/8 of the frame, covering it), goes to linear light, box-blurs the
-// tiny frame, upscales back to the frame, then darkens and returns to gamma. The blur only ever
+// branch downscales hard (1/8 of the frame, covering it), box-blurs the tiny frame, upscales
+// back to the frame, darkens (*0.55), in whatever format the source is in. The blur only ever
 // runs on the tiny frame. When the clip already matches the frame there are no bars: plain Fit.
 const BLUR_DIV=8, BLUR_DARKEN=0.55;
+const scaleFlags=(base='fast_bilinear')=>$('perfExperimental')?.checked?`${base}+experimental`:base;
 function socialVf(t,c,mode){
   const parts=[];
   if(c)parts.push(`crop=${c.w}:${c.h}:${c.x}:${c.y}`);
@@ -296,19 +303,19 @@ function socialVf(t,c,mode){
     if(fw/fh>A){ah=evenDown(fh);aw=Math.min(evenDown(fw),evenRound(ah*A))}
     else{aw=evenDown(fw);ah=Math.min(evenDown(fh),evenRound(aw/A))}
     if(aw!==fw||ah!==fh)parts.push(`crop=${aw}:${ah}:${evenDown((fw-aw)/2)}:${evenDown((fh-ah)/2)}`);
-    parts.push(`scale=${t.w}:${t.h}:flags=fast_bilinear`);
+    parts.push(`scale=${t.w}:${t.h}:flags=${scaleFlags()}`);
   }else{
     const k=Math.min(t.w/fw,t.h/fh), sw=Math.min(t.w,evenRound(fw*k)), sh=Math.min(t.h,evenRound(fh*k));
     if(mode==='blur'&&(sw!==t.w||sh!==t.h)){
-      const bw=evenRound(t.w/BLUR_DIV), bh=evenRound(t.h/BLUR_DIV), lin='gammaval(2.2)', out=`gammaval(0.4545)*${BLUR_DARKEN}`;
-      const bg=[`scale=${bw}:${bh}:force_original_aspect_ratio=increase:flags=area`,`crop=${bw}:${bh}`,'format=gbrp',
-        `lutrgb=r=${lin}:g=${lin}:b=${lin}`,'boxblur=6:3',`scale=${t.w}:${t.h}:flags=fast_bilinear`,
-        `lutrgb=r=${out}:g=${out}:b=${out}`,'format=yuv420p','setsar=1'].join(',');
-      const fg=`scale=${sw}:${sh}:flags=fast_bilinear,setsar=1`;
+      const bw=evenRound(t.w/BLUR_DIV), bh=evenRound(t.h/BLUR_DIV), out=`val*${BLUR_DARKEN}`;
+      const bg=[`scale=${bw}:${bh}:force_original_aspect_ratio=increase:flags=${scaleFlags('area')}`,`crop=${bw}:${bh}`,
+        'boxblur=6:3',`scale=${t.w}:${t.h}:flags=${scaleFlags()}`,
+        `lutrgb=r=${out}:g=${out}:b=${out}`,'setsar=1'].join(',');
+      const fg=`scale=${sw}:${sh}:flags=${scaleFlags()},setsar=1`;
       const head=parts.length?parts.join(',')+',':'';
       return `${head}split=2[bg][fg];[bg]${bg}[bgo];[fg]${fg}[fgo];[bgo][fgo]overlay=${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)},setsar=1,fps=30`;
     }
-    parts.push(`scale=${sw}:${sh}:flags=fast_bilinear`);
+    parts.push(`scale=${sw}:${sh}:flags=${scaleFlags()}`);
     if(sw!==t.w||sh!==t.h)parts.push(`pad=${t.w}:${t.h}:${evenDown((t.w-sw)/2)}:${evenDown((t.h-sh)/2)}:color=black`);
   }
   parts.push('setsar=1','fps=30');
@@ -515,10 +522,19 @@ function phaseProgress(frac){bar.style.width=(clamp(phase.from+clamp(frac,0,1)*p
 // phone memory / UI responsiveness: compute encoder threads (-threads, multithreaded core only)
 // one core left for the UI, floor 2, cap 8, fallback 4 if hardwareConcurrency is unavailable
 // does not change prebuilt core fixed pthread pool or 1 GiB shared memory
-const encodeThreads=()=>{
+const safeThreads=()=>{
   const cores=navigator.hardwareConcurrency;
   return cores?Math.min(8,Math.max(2,cores-1)):4;
 };
+const activeThreads=()=>{
+  const cores=navigator.hardwareConcurrency;
+  const safe=safeThreads();
+  if($('perfAllCores')?.checked){
+    return (cores&&cores>0)?cores:safe;
+  }
+  return safe;
+};
+const encodeThreads=activeThreads;
 const ENCODE_THREADS=encodeThreads();
 const FF_WORKER='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js';
 const CORE_BASE={st:'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm',mt:'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.10/dist/esm'};
@@ -561,7 +577,7 @@ async function loadFFmpeg(){
   engineMT=mt;
   engineState='ready';
   updateModeIndicator();
-  console.info(`[clip-sizer] encoder loaded: ${mt?'core-mt, -threads '+encodeThreads():'core (single-threaded)'}; crossOriginIsolated=${self.crossOriginIsolated===true}`);
+  console.info(`[clip-sizer] encoder loaded: ${mt?'core-mt, -threads '+activeThreads():'core (single-threaded)'}; crossOriginIsolated=${self.crossOriginIsolated===true}`);
   return ffmpeg;
 }
 async function run(engine,args){
@@ -643,7 +659,8 @@ async function runBatch(allowRetry){
       }
     }
     if(engineState!=='failed'){
-      const thr=engineMT?['-threads',String(encodeThreads())]:[]; // encoder thread cap, multithreaded core only
+      const thr=engineMT?['-threads',String(activeThreads())]:[]; // encoder thread cap, multithreaded core only
+      const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
       status.textContent='Reading source video…';
       let fileBuffer;
       try{
@@ -664,8 +681,8 @@ async function runBatch(allowRetry){
     const weight=o=>o.budget?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
     const encoders={
       async discord(tag,from,span){
-        const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=fast_bilinear,fps=30`;
-        const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',DLOG,...thr];
+        const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`;
+        const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-passlogfile',DLOG,...thr,...fthr];
         setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
         await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
         setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
@@ -675,8 +692,8 @@ async function runBatch(allowRetry){
         return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
       },
       async chan(tag,from,span){
-        const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=fast_bilinear,fps=30`;
-        const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-pix_fmt','yuv420p','-passlogfile',CLOG,...thr];
+        const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`;
+        const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
         setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
         await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
         setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
@@ -689,7 +706,7 @@ async function runBatch(allowRetry){
       async social(o,tag,from,span){
         const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
         setPhase(`${tag}…`,from,span);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60','-pix_fmt','yuv420p',...thr,'-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,'-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
         const mp4=await engine.readFile(out);
         saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
         const L=lengthCheck(o,segDuration());
@@ -841,7 +858,7 @@ function updateModeIndicator(){
     return;
   }
   if(engineMT){
-    el.textContent='Multithreaded';
+    el.textContent=`Multithreaded · ${activeThreads()} threads`;
     el.hidden=false;
   }else{
     el.innerHTML='Single-threaded fallback · <button type="button" id="tryFastSetup" class="link-btn">Try fast setup</button>';
@@ -851,10 +868,14 @@ function updateModeIndicator(){
 }
 $('setupGo').addEventListener('click',runSetup);
 $('setupAgain')?.addEventListener('click',tryFastSetup);
+$('perfAllCores')?.addEventListener('change',updateModeIndicator);
 window.__tryFastSetup=tryFastSetup;
 window.__updateModeIndicator=updateModeIndicator;
 window.__engineMT=()=>engineMT;
-window.__encodeThreads=encodeThreads;
+window.__safeThreads=safeThreads;
+window.__activeThreads=activeThreads;
+window.__encodeThreads=activeThreads;
+window.__scaleFlags=scaleFlags;
 console.info(`[clip-sizer] boot: setup=${setupState()||'none'}, crossOriginIsolated=${self.crossOriginIsolated===true}, restartedThisTab=${!!store.get('sessionStorage',RESTARTED_KEY)}`);
 showSetup(!setupState());
 </script>
