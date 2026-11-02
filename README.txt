@@ -42,7 +42,7 @@ A single checkbox (default checked) applies to all three Socials shapes:
 - Discord keeps AAC 128k and 4chan remains mute, unaffected by this control.
 
 **"All 4chan" debug flag (CPU path):**
-A debug override checkbox (default off). When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap), ignoring audio and size limit settings. Frame shapes and composition (Fit / Fill / Blur) remain intact.
+A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap), ignoring audio and size limit settings. Frame shapes and composition (Fit / Fill / Blur) remain intact.
 
 **One file posts everywhere** (at 2:00 or under):
 - Vertical 9:16 posts to X, YouTube Shorts, Instagram Reels and TikTok.
@@ -61,11 +61,12 @@ Order: your manual crop first, then fit/fill/blur, then scale to the frame, then
 
 **Speed** (Veryfast default / Superfast / Ultrafast): the x264 preset for the MP4 files — Discord (both passes) and Socials. Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP9) is not affected.
 
-**Performance options (opt-in):** Three checkboxes at the bottom of the options area, all off by default with no persistence across loads:
+**Debug options (opt-in):** Four checkboxes at the bottom of the options area, all off by default with no persistence across loads:
 - **Experimental speed:** replaces the scale filter flag with `flags=experimental` across all pipelines.
 - **Use all cores:** uses the full hardware concurrency (`navigator.hardwareConcurrency`) for x264 encoder `-threads` on the multithreaded core instead of the safe-guess formula.
 - **Threaded filters:** adds `-filter_threads <N>` with the active thread count to the encode arguments to enable threaded filter graph processing.
-(Note: Performance checkboxes and x264 speed presets are CPU-path concepts and are ignored on hardware-engine outputs, where scaling is GPU-backed via canvas and bitrateMode CBR governs quality.)
+- **All 4chan:** forces every selected output to two-pass VP9 mute WebM under the 4chan cap (see '"All 4chan" debug flag' above).
+(Note: Debug checkboxes and x264 speed presets are CPU-path concepts and are ignored on hardware-engine outputs, where scaling is GPU-backed via canvas and bitrateMode CBR governs quality.)
 
 **Format passthrough & fast blur.** Pixel format conversions are never forced: `-pix_fmt yuv420p` is omitted from all outputs, and the blur background chain avoids format conversions (`format=gbrp` and `format=yuv420p` are removed). Sources remain in their native format (e.g. RGB in → 4:4:4 out for H.264, YUV in → YUV out; 4chan VP9 auto-negotiates yuv420p per libvpx-vp9 requirements).
 

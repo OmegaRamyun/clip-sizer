@@ -563,7 +563,6 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
           <input id="socialLimit" type="number" inputmode="decimal" min="0" step="any" placeholder="No limit" style="width:110px;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#141824;color:#fff;font-size:1rem">
         </div>
       </div>
-      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span><b>All 4chan</b> — force all selected outputs to 3.89 MB mute VP9 WebM</span></label>
     </div>
     <label>If your clip doesn't match the output shape</label>
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
@@ -579,11 +578,12 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="preset" value="ultrafast"><span>Ultrafast</span></label>
     </div>
     <p class="note">Faster finishes sooner but looks a little worse at the same file size. File sizes do not change. Applies to the MP4 files (Discord and Generic); the 4chan WebM is not affected.</p>
-    <label>Performance</label>
+<label>Debug</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
       <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
       <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
+      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span><b>All 4chan</b> — force all selected outputs to 3.89 MB mute VP9 WebM</span></label>
     </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
