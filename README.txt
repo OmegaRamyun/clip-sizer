@@ -12,21 +12,25 @@ On the first visit in a browser, Compression Protocol shows a First setup screen
 
 ## Use
 Choose a video, optionally trim and crop it, check the outputs you want, review the estimates, then press **Go**. One file is made per checked output, one at a time (never in parallel, to spare phone memory). Discord and 4chan are checked by default:
-- Discord: MP4 / H.264 / AAC stereo (128 kb/s), target 19 MB (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
-- 4chan: WebM / VP9 / no audio, target 3.8 MB (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan)
+- Discord: main: `Discord` / sub: `MP4, 19 MB target, H264, AAC` (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
+- 4chan: main: `4chan` / sub: `Webm, 3.8mb target, VP9, Silent` (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan)
 
 When 2 or more outputs are made, finished files are delivered as ONE zip file (`name_clips.zip`), assembled using STORE (no recompression) so phone CPU/battery are not burned on already-compressed video. Single-output batches deliver that file directly. If zip creation fails, individual download links are served as a fallback.
 
 ## Formats & Socials pack (specs as of Nov 2026 — platforms change these; check before a big upload)
-Pick Formats offers three choices: Discord (H.264 + AAC 128k), 4chan (Mute VP9), and Socials (3-pack, H.264 + AAC 128k), plus a debug "All 4chan" override flag.
+Pick Formats offers three choices formatted with name on the main line and subheading descriptions underneath:
+- Discord — main: `Discord` / sub: `MP4, 19 MB target, H264, AAC`
+- 4chan — main: `4chan` / sub: `Webm, 3.8mb target, VP9, Silent`
+- Socials — main: `Socials` / sub: `3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC`
+plus a debug "All 4chan" override flag in the Debug section (main: `All 4chan` / sub: `Force all selected outputs to 3.89 MB mute VP9 WebM`). Checkboxes without descriptions (Experimental speed, Use all cores, Threaded filters, preset radios) remain single-line labels.
 
-The Socials pack replaces the three separate shape checkboxes with ONE checkbox that produces all three shapes in one run:
-- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 10 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default veryfast), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Blur) applied per shape. Unchecked by default.
+The Socials pack replaces the three separate shape checkboxes with ONE checkbox that produces all three shapes in one run at a flat 8 Mbps across the board:
+- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 8 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default veryfast), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Blur) applied per shape. Unchecked by default. At 2:00, each Socials clip is at most ~120 MB (down from ~150 MB).
 
 | Output | Frame | Video target | Audio | File |
 |---|---|---|---|---|
 | Generic Horizontal | 16:9, 1920x1080 | 8000 kb/s | AAC 128k stereo | `name_Horizontal.mp4` |
-| Generic Vertical | 9:16, 1080x1920 | 10000 kb/s | AAC 128k stereo | `name_Vertical.mp4` |
+| Generic Vertical | 9:16, 1080x1920 | 8000 kb/s | AAC 128k stereo | `name_Vertical.mp4` |
 | Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo | `name_Square.mp4` |
 
 **"All 4chan" debug flag (CPU path):**
@@ -82,7 +86,7 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Visual polish pass (Signal Protocol Eva/NERV terminal theme).** The interface adopts the Signal Protocol Eva/NERV terminal-parody palette (warm blacks `#0c0d11`, solid charcoal panels `#15171e`, glowing terminal amber primary `#f59e0b`, diagnostic teal telemetry `#14b8a6` / `#2dd4bf`, signal red error `#f87171` / `#ef4444`, and warning amber `#fbbf24`). Built strictly for legibility and touch ergonomics: solid opaque surfaces, crisp high-contrast typography, interactive touch targets ≥44px in both dimensions across all controls (buttons, inputs, and selection rows), and snappy Earshot-character micro-motion (≤250ms with overshoot easing).
 
-**Trace-Tan mascot companion & Signal SFX.** A bobbing Trace-Tan chibi companion sits beside a high-contrast terminal speech bubble with reactive flavor commentary and Signal Protocol sound effects. Emotes and status messages are wired to the application lifecycle: idle (neutral), file chosen (smug + select sound), encoding (determined), batch done (happy + achievement toast sound), error / stale file / preflight failure (dizzy with spiral eyes + dizzy sound), over-length warning (shocked), update available (shocked), and First Setup (nervous). Tapping Trace-Tan plays a blush reaction with a blush emote and SFX. A 44px mute toggle persists audio preferences in localStorage (default unmuted). Idling bobs and animations strictly respect `prefers-reduced-motion` by displaying static frames.
+**Trace-Tan mascot companion & Signal SFX.** A bobbing Trace-Tan chibi companion sits at the bottom of the page beside a high-contrast terminal speech bubble with reactive flavor commentary and Signal Protocol sound effects. During batch encoding, her bubble speaks the live progress text (phase + output + percent) while the standalone progress text is suppressed (the progress bar remains visible). Emotes and status messages are wired to the application lifecycle: idle (neutral), file chosen (smug + select sound), encoding (determined), batch done (happy + achievement toast sound), error / stale file / preflight failure (dizzy with spiral eyes + dizzy sound; error details surface in status and bubble), over-length warning (shocked), update available (shocked), and First Setup (nervous). Tapping Trace-Tan plays a blush reaction with a blush emote and SFX. A 44px mute toggle persists audio preferences in localStorage (default unmuted). Idling bobs and animations strictly respect `prefers-reduced-motion` by displaying static frames.
 
 **Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot`).
 

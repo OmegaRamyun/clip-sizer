@@ -104,7 +104,7 @@ button:focus-visible,.download:focus-visible{outline:2px solid var(--accent);out
 button.secondary{background:#202430;color:var(--text);border:1px solid var(--line-strong)}
 button.secondary:hover:not(:disabled){background:#282e3e;border-color:#48526c;color:var(--text-bright)}
 button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
-#setupAgain[hidden],#updatePrompt[hidden],#modeIndicator[hidden]{display:none !important}
+#setupAgain[hidden],#updatePrompt[hidden],#modeIndicator[hidden],#status[hidden]{display:none !important}
 #updatePrompt{border-color:rgba(245,158,11,0.5);background:#181b24;box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 12px rgba(245,158,11,0.12)}
 .update-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .update-msg{font-weight:700;font-size:1rem;color:var(--text-bright)}
@@ -198,8 +198,10 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   transition:border-color 140ms var(--ease-out),background-color 140ms var(--ease-out);
 }
 .check:hover{background:#151821;border-color:var(--line-strong)}
-.check input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--accent);cursor:pointer}
 .check span{min-width:0;overflow-wrap:anywhere;font-size:0.92rem;line-height:1.35}
+.check-body{display:flex;flex-direction:column;min-width:0;gap:2px}
+.check-name,.check-name b{font-size:0.95rem;font-weight:700;color:var(--text-bright);line-height:1.3}
+.check-sub,small.check-sub{display:block;font-size:0.80rem;font-weight:400;color:var(--muted);line-height:1.35}
 .aspect{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
 #outSummary{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:0.85rem;line-height:1.45}
 #outSummary li{margin:4px 0;overflow-wrap:anywhere}
@@ -452,18 +454,6 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       </div>
     </div>
   </div>
-  <div class="mascot-card" id="mascotCard">
-    <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
-      <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
-    </button>
-    <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
-      <div class="mascot-speaker">TRACE-TAN</div>
-      <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
-    </div>
-    <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
-      <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
-    </button>
-  </div>
   <section class="panel" id="setup" hidden>
     <h2>First setup</h2>
     <p>Compression Protocol downloads FFMPEG WASM (about 30–40 MB) once, then restarts.</p>
@@ -539,9 +529,9 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <section class="panel" id="outputs">
     <h2>Outputs</h2>
     <div class="checks" id="outChecks">
-      <label class="check"><input type="checkbox" id="out-discord" value="discord" checked><span><b>Discord</b> — MP4 + audio, 19 MB target, any length</span></label>
-      <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span><b>4chan</b> — WebM VP9, silent, 3.8 MB target, any length</span></label>
-      <label class="check"><input type="checkbox" id="out-socials" name="out-social" value="socials"><span><b>Socials</b> — 3-pack (Horizontal, Vertical, Square), up to 2:00</span></label>
+      <label class="check"><input type="checkbox" id="out-discord" value="discord" checked><span class="check-body"><span class="check-name name"><b>Discord</b></span><small class="check-sub sub">MP4, 19 MB target, H264, AAC</small></span></label>
+      <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span class="check-body"><span class="check-name name"><b>4chan</b></span><small class="check-sub sub">Webm, 3.8mb target, VP9, Silent</small></span></label>
+      <label class="check"><input type="checkbox" id="out-socials" name="out-social" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC</small></span></label>
     </div>
     <label>If your clip doesn't match the output shape</label>
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
@@ -562,7 +552,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
       <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
       <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
-      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span><b>All 4chan</b> — force all selected outputs to 3.89 MB mute VP9 WebM</span></label>
+      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Force all selected outputs to 3.89 MB mute VP9 WebM</small></span></label>
     </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
@@ -583,6 +573,18 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <div id="links"></div>
   </section>
   <p class="note">Targets are deliberately set below the stated limits to leave room for container overhead. Actual file size can vary slightly by encoder/container; check the final size before uploading.</p>
+  </div>
+  <div class="mascot-card" id="mascotCard">
+    <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
+      <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
+    </button>
+    <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
+      <div class="mascot-speaker">TRACE-TAN</div>
+      <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
+    </div>
+    <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
+      <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
+    </button>
   </div>
 </main>
 <script type="module">
@@ -730,7 +732,7 @@ function pokeMascot() {
   blushTimer = setTimeout(() => {
     blushTimer = null;
     const emote = EMOTE_MAP[currentMascotState] || 'neutral';
-    const msg = FLAVOR_LINES[currentMascotState] || FLAVOR_LINES.idle;
+    const msg = (busy && phase.label) ? `${phase.label} ${Math.round(parseFloat(bar.style.width)||0)}%` : (FLAVOR_LINES[currentMascotState] || FLAVOR_LINES.idle);
     if (avatar) {
       avatar.setAttribute('data-emote', emote);
       avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
@@ -803,7 +805,7 @@ function estimate() {
 const GENERIC_MAX_LEN=120; // 2:00 fits X (2:20), Shorts (3:00), Reels (3:00 for reach), TikTok (10:00)
 const SOCIAL_SHAPES=[
   {id:'horizontal',name:'Generic Horizontal',file:'Horizontal',w:1920,h:1080,shape:'16:9',kbps:8000},
-  {id:'vertical',name:'Generic Vertical',file:'Vertical',w:1080,h:1920,shape:'9:16',kbps:10000},
+  {id:'vertical',name:'Generic Vertical',file:'Vertical',w:1080,h:1920,shape:'9:16',kbps:8000},
   {id:'square',name:'Generic Square',file:'Square',w:1080,h:1080,shape:'1:1',kbps:8000},
 ];
 const SOCIAL_AUDIO_KBPS=128;
@@ -1075,8 +1077,28 @@ fileInput.addEventListener('change',()=>{
 
 // Progress spans the whole job: each pass owns a slice [from, from+span] of the bar.
 let phase={label:'',from:0,span:0}, phaseDur=1, lastLog='';
-function setPhase(label,from,span){phase={label,from,span};status.textContent=label;bar.style.width=(from*100)+'%'}
-function phaseProgress(frac){bar.style.width=(clamp(phase.from+clamp(frac,0,1)*phase.span,0,1)*100)+'%'}
+function setPhase(label,from,span){
+  phase={label,from,span};
+  const pct=Math.round(from*100);
+  const progText=label?`${label} ${pct}%`:`Encoding… ${pct}%`;
+  status.textContent=progText;
+  bar.style.width=(from*100)+'%';
+  if(busy){
+    const msgEl=$('mascotMsg');
+    if(msgEl)msgEl.textContent=progText;
+  }
+}
+function phaseProgress(frac){
+  const currentFrac=clamp(phase.from+clamp(frac,0,1)*phase.span,0,1);
+  const pct=Math.round(currentFrac*100);
+  bar.style.width=(currentFrac*100)+'%';
+  const progText=phase.label?`${phase.label} ${pct}%`:`Encoding… ${pct}%`;
+  status.textContent=progText;
+  if(busy){
+    const msgEl=$('mascotMsg');
+    if(msgEl)msgEl.textContent=progText;
+  }
+}
 // ---- Encoder core ----
 // Multithreaded core only when the page is cross-origin isolated (sw.js adds the headers);
 // otherwise the single-threaded core, silently. ESM builds: the library's worker is a module
@@ -1110,7 +1132,9 @@ const ffWorkerURL=()=>ffWorker||(ffWorker=URL.createObjectURL(new Blob([`import 
 async function loadFFmpeg(){
   if(engineState==='ready'&&ffmpeg)return ffmpeg;
   engineState='loading';
-  status.textContent='Loading video encoder (first launch downloads about 30–40 MB)…';
+  const loadingText='Loading video encoder (first launch downloads about 30–40 MB)…';
+  status.textContent=loadingText;
+  if(busy){const msgEl=$('mascotMsg');if(msgEl)msgEl.textContent=loadingText;}
   const inst=new FFmpeg();
   inst.on('log',({message})=>{
     if(!message)return;
@@ -1524,6 +1548,7 @@ async function runBatch(allowRetry){
   fileState='verified';
 
   busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
+  status.hidden=true;
   setMascotState('encoding');
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
@@ -1554,6 +1579,7 @@ async function runBatch(allowRetry){
     try{
       engine=await loadFFmpeg();
     }catch(err){
+      status.hidden=false;
       setMascotState('error');
       if(allowRetry&&engineState==='failed'){
         ffmpeg=null;
@@ -1564,13 +1590,15 @@ async function runBatch(allowRetry){
       }
       throw err;
     }
-    if(engineState==='failed'){setMascotState('error');throw new Error('Encoder download failed.');}
+    if(engineState==='failed'){status.hidden=false;setMascotState('error');throw new Error('Encoder download failed.');}
     status.textContent='Reading source video…';
+    if(busy){const msgEl=$('mascotMsg');if(msgEl)msgEl.textContent='Reading source video…';}
     let fileBuffer;
     try{
       fileBuffer=await fetchFile(selected);
     }catch{
       fileState='stale';
+      status.hidden=false;
       setMascotState('stale');
       status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
       throw new Error('file stale');
@@ -1674,6 +1702,7 @@ async function runBatch(allowRetry){
     phase={label:'',from:0,span:0};
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
+    status.hidden=false;
     setMascotState(!failed ? 'done' : 'error');
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
     if(madeOutputs.length===1){
@@ -1691,11 +1720,13 @@ async function runBatch(allowRetry){
     }
   }catch(e){
     phase={label:'',from:0,span:0};
+    status.hidden=false;
     setMascotState('error');
     status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
   }finally{
     if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
     busy=false;updateGo();
+    status.hidden=false;
   }
   if(pendingRetry){pendingRetry=false;runBatch(false);}
 }
