@@ -1,4 +1,4 @@
-const CACHE='clip-sizer-shell-v18';
+const CACHE='clip-sizer-shell-v19';
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html','./manifest.webmanifest'])))});
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 // Re-serve the app's own responses with COOP/COEP added so the page can use the multithreaded encoder.

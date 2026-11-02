@@ -25,31 +25,19 @@ The Socials pack replaces the three separate shape checkboxes with ONE checkbox 
 
 | Output | Frame | Video target | Audio | File |
 |---|---|---|---|---|
-| Generic Horizontal | 16:9, 1920x1080 | 8000 kb/s | AAC 128k stereo (or mute) | `name_Horizontal.mp4` |
-| Generic Vertical | 9:16, 1080x1920 | 10000 kb/s | AAC 128k stereo (or mute) | `name_Vertical.mp4` |
-| Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo (or mute) | `name_Square.mp4` |
-
-**Global size limit (Socials pack):**
-A single number input for file size limit in MB applies to all three Socials shapes equally:
-- Blank = no limit (default; preserves standard bitrate targets).
-- When set: video bitrate becomes `min(existing target, limit-derived bitrate)` where limit-derived bitrate = `(limit_bytes × 8 / duration_seconds) - audio_kbps` (using 1 MB = 1,000,000 bytes).
-- Floor: never computes below 200 kbps (logs a console warning if floor is reached). If an encoded file exceeds the limit, a console warning is logged (no new UI). Discord and 4chan are unaffected.
-
-**Global audio checkbox (Socials pack):**
-A single checkbox (default checked) applies to all three Socials shapes:
-- Checked = AAC 128 kb/s stereo.
-- Unchecked = removes audio track (`-an`) from all three Socials shapes and sets audio allowance to 0 in the size limit math.
-- Discord keeps AAC 128k and 4chan remains mute, unaffected by this control.
+| Generic Horizontal | 16:9, 1920x1080 | 8000 kb/s | AAC 128k stereo | `name_Horizontal.mp4` |
+| Generic Vertical | 9:16, 1080x1920 | 10000 kb/s | AAC 128k stereo | `name_Vertical.mp4` |
+| Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo | `name_Square.mp4` |
 
 **"All 4chan" debug flag (CPU path):**
-A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap), ignoring audio and size limit settings. Frame shapes and composition (Fit / Fill / Blur) remain intact.
+A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap). Frame shapes and composition (Fit / Fill / Blur) remain intact.
 
 **One file posts everywhere** (at 2:00 or under):
 - Vertical 9:16 posts to X, YouTube Shorts, Instagram Reels and TikTok.
 - Square 1:1 posts to X, YouTube Shorts, Instagram Reels and TikTok.
 - Horizontal 16:9 posts natively to X and uploads elsewhere (a 16:9 file is not a Short and does not fill a vertical feed).
 
-**One universal limit: 2:00.** 2:00 fits everywhere: X allows 2:20, Shorts 3:00, Reels 3:00 for reach (longer Reels still post but are not recommended to non-followers), TikTok 10:00. The size limits on those services are far above what these bitrates produce, so no size caps are applied unless the Socials size limit input is set.
+**One universal limit: 2:00.** 2:00 fits everywhere: X allows 2:20, Shorts 3:00, Reels 3:00 for reach (longer Reels still post but are not recommended to non-followers), TikTok 10:00. The size limits on those services are far above what these bitrates produce, so no size caps are applied.
 
 **Single pass for Generic outputs.** Discord and 4chan use two-pass encoding because they must hit a tight size target accurately. The Generic outputs have generous quality bitrates and no size target, so single-pass (preset veryfast) is the better time/quality trade on a phone, especially in a batch.
 

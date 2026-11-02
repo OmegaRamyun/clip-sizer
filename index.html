@@ -200,20 +200,6 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 .check:hover{background:#151821;border-color:var(--line-strong)}
 .check input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--accent);cursor:pointer}
 .check span{min-width:0;overflow-wrap:anywhere;font-size:0.92rem;line-height:1.35}
-#socialOptions{display:flex !important;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 8px 12px !important}
-#socialOptions .check{min-height:44px !important;padding:6px 14px !important;background:#101217 !important;border:1px solid var(--line) !important}
-#socialOptions input#socialLimit{
-  min-height:44px !important;
-  width:110px !important;
-  border:1px solid var(--line) !important;
-  background:#101217 !important;
-  border-radius:10px !important;
-  font-family:inherit;
-  padding:6px 10px !important;
-  color:#fff !important;
-  font-size:1rem !important;
-}
-#socialOptions input#socialLimit:focus{border-color:var(--accent) !important;outline:none;box-shadow:0 0 0 2px var(--accent-glow)}
 .aspect{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
 #outSummary{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:0.85rem;line-height:1.45}
 #outSummary li{margin:4px 0;overflow-wrap:anywhere}
@@ -556,13 +542,6 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="checkbox" id="out-discord" value="discord" checked><span><b>Discord</b> — MP4 + audio, 19 MB target, any length</span></label>
       <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span><b>4chan</b> — WebM VP9, silent, 3.8 MB target, any length</span></label>
       <label class="check"><input type="checkbox" id="out-socials" name="out-social" value="socials"><span><b>Socials</b> — 3-pack (Horizontal, Vertical, Square), up to 2:00</span></label>
-      <div id="socialOptions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0 8px 12px">
-        <label class="check" style="min-height:40px;padding:6px 12px;background:#181c28"><input type="checkbox" id="socialAudio" checked><span>Audio</span></label>
-        <div class="field" style="display:flex;align-items:center;gap:8px">
-          <label for="socialLimit" style="margin:0;font-size:.9rem;white-space:nowrap">Size limit (MB)</label>
-          <input id="socialLimit" type="number" inputmode="decimal" min="0" step="any" placeholder="No limit" style="width:110px;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#141824;color:#fff;font-size:1rem">
-        </div>
-      </div>
     </div>
     <label>If your clip doesn't match the output shape</label>
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
@@ -832,9 +811,6 @@ const SOCIAL_AUDIO_KBPS=128;
 for(const id of ['out-discord','out-chan','out-socials','allChan']){
   $(id)?.addEventListener('change',()=>{updateGo();if(duration)estimate()});
 }
-$('socialAudio')?.addEventListener('change',()=>{if(duration)estimate()});
-$('socialLimit')?.addEventListener('input',()=>{if(duration)estimate()});
-$('socialLimit')?.addEventListener('change',()=>{if(duration)estimate()});
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
 
 const checkedOutputs=()=>{
@@ -852,33 +828,8 @@ const X264_PRESETS=['veryfast','superfast','ultrafast'];
 const x264Preset=()=>{const v=document.querySelector('input[name=preset]:checked')?.value;return X264_PRESETS.includes(v)?v:'veryfast'};
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 
-function getSocialLimitMB(){
-  const raw=$('socialLimit')?.value?.trim();
-  if(!raw)return null;
-  const v=parseFloat(raw);
-  return Number.isFinite(v)&&v>0?v:null;
-}
-function getSocialAudio(){
-  const el=$('socialAudio');
-  return el?el.checked:true;
-}
-
-function socialTarget(o, d=segDuration()){
-  const limMB=getSocialLimitMB();
-  const audioOn=getSocialAudio();
-  const dur=Math.max(d, 0.1);
-  let kbps=o.kbps;
-  if(limMB!==null){
-    const audioKbps=audioOn?128:0;
-    const limitDerived=(limMB*1e6*8/dur/1000)-audioKbps;
-    if(limitDerived<200){
-      console.warn('[clip-sizer] video bitrate floor (200 kbps) reached; output may exceed size limit');
-      kbps=Math.min(o.kbps, 200);
-    }else{
-      kbps=Math.min(o.kbps, Math.round(limitDerived));
-    }
-  }
-  return {w:o.w, h:o.h, shape:o.shape, kbps, audioOn, limMB};
+function socialTarget(o){
+  return {w:o.w, h:o.h, shape:o.shape, kbps:o.kbps};
 }
 
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
@@ -939,12 +890,9 @@ function renderOutputs(r){
     }else if(o.id==='chan'){
       txt=`4chan: ${r.cw}×${r.ch}, ~${r.chanVideo} kb/s VP9, no audio, two-pass — ${L.text}`;
     }else{
-      const t=socialTarget(o,d);
-      const audioKbps=t.audioOn?128:0;
-      const mb=(t.kbps+audioKbps)*d/8/1000;
-      const audioTxt=t.audioOn?'128 kb/s AAC':'no audio';
-      const limTxt=t.limMB!==null?`, limit ${t.limMB} MB`:'';
-      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${(t.kbps/1000).toFixed(1)} Mb/s video + ${audioTxt}, ~${mb.toFixed(0)} MB est.${limTxt} — ${L.text}`;
+      const t=socialTarget(o);
+      const mb=(t.kbps+128)*d/8/1000;
+      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${(t.kbps/1000).toFixed(1)} Mb/s video + 128 kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
     }
     li.textContent=txt;if(!isAllChan&&!L.fits){li.className='over';over.push(o)}
     ul.appendChild(li);
@@ -1376,17 +1324,14 @@ async function canHardwareEncodeOutput(o, s, d){
   const isAllChan=$('allChan')?.checked;
   const isDiscord=o.id==='discord';
   const isChan=o.id==='chan';
-  const t=socialTarget(o,d);
+  const t=socialTarget(o);
   const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
   const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
   const codec=(isAllChan||isChan)?'vp9':'avc';
   const kbps=(isAllChan||isChan)?s.chanVideo:isDiscord?s.discordVideo:t.kbps;
   const okVideo=await canHardwareEncode(codec,tw,th,kbps*1000);
   if(!okVideo)return false;
-  if(!isAllChan&&!isChan){
-    const needsAudio=isDiscord||t.audioOn;
-    if(needsAudio&&!aacEncoderAvailable)return false;
-  }
+  if(!isAllChan&&!isChan&&!aacEncoderAvailable)return false;
   return true;
 }
 
@@ -1394,7 +1339,7 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   if(window.__forceHardwareFail)throw new Error('Forced hardware failure');
   const isAllChan=$('allChan')?.checked;
   const isDiscord=o.id==='discord', isChan=o.id==='chan';
-  const t=socialTarget(o,d);
+  const t=socialTarget(o);
   const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
   const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
   const isVp9=isAllChan||isChan;
@@ -1402,7 +1347,7 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   const codecLabel=isVp9?'VP9':'H.264';
   const mimeType=isVp9?'video/webm':'video/mp4';
   const outName=isAllChan?`${stem}_${o.file||o.name}.webm`:isDiscord?`${stem}_Discord.mp4`:isChan?`${stem}_4chan.webm`:`${stem}_${o.file}.mp4`;
-  const cap=(isAllChan||isChan)?CHAN_CAP:isDiscord?DISCORD_CAP:(t.limMB!==null?t.limMB*1e6:null);
+  const cap=(isAllChan||isChan)?CHAN_CAP:isDiscord?DISCORD_CAP:null;
 
   setHardwareMode(codecLabel);
   setPhase(`${tag} (hardware)…`,from,span);
@@ -1477,14 +1422,11 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   // Audio config
   let audioConfig={discard:true};
   if(!isAllChan&&!isChan){
-    const needsAudio=isDiscord||t.audioOn;
-    if(needsAudio){
-      audioConfig={
-        codec:'aac',
-        quality:new mb.Quality({bitrate:128000,bitrateMode:'constant'}),
-        numberOfChannels:2
-      };
-    }
+    audioConfig={
+      codec:'aac',
+      quality:new mb.Quality({bitrate:128000,bitrateMode:'constant'}),
+      numberOfChannels:2
+    };
   }
 
   const trimConfig=(trim.start>0||trim.end<duration-0.05)?{start:trim.start,end:trim.end}:undefined;
@@ -1528,9 +1470,6 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   if(isAllChan||o.budget){
     line=sizeLine(o.name,finalBlob.size,cap);
   }else{
-    if(t.limMB!==null&&finalBlob.size>t.limMB*1e6){
-      console.warn(`[clip-sizer] ${o.name} output (${finalBlob.size} bytes) exceeded size limit (${t.limMB*1e6} bytes)`);
-    }
     const L=lengthCheck(o,d);
     line=`${o.name}: ${fmtBytes(finalBlob.size)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
   }
@@ -1646,7 +1585,7 @@ async function runBatch(allowRetry){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
       const isDiscord=o.id==='discord', isChan=o.id==='chan';
-      const t=socialTarget(o,segDuration());
+      const t=socialTarget(o);
       const vf=isDiscord?`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`
         :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
         :socialVf(t,s.crop,mode);
@@ -1687,17 +1626,10 @@ async function runBatch(allowRetry){
     async social(o,tag,from,span){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
-      const t=socialTarget(o,segDuration()), k=t.kbps, out=socialTmp(o);
-      const audioArgs=t.audioOn?['-c:a','aac','-b:a','128k','-ac','2']:['-an'];
+      const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
       setPhase(`${tag}…`,from,span);
-      await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,...audioArgs,'-movflags','+faststart',out]);
+      await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,'-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',out]);
       const mp4=await engine.readFile(out);
-      if(t.limMB!==null){
-        const limitBytes=t.limMB*1e6;
-        if(mp4.byteLength>limitBytes){
-          console.warn(`[clip-sizer] ${o.name} output (${mp4.byteLength} bytes) exceeded size limit (${limitBytes} bytes)`);
-        }
-      }
       const L=lengthCheck(o,segDuration());
       return {blob:new Blob([mp4.buffer],{type:'video/mp4'}),name:`${stem}_${o.file}.mp4`,line:`${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`)};
     },
