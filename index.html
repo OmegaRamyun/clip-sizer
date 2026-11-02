@@ -58,7 +58,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -89,7 +89,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
         <div class="stat"><small>Trimmed duration</small><strong id="trimmed">—</strong></div>
         <div class="stat"><small>Crop</small><strong id="cropstat">Full frame</strong></div>
         <div class="stat"><small>Discord target</small><strong>19 MB · MP4 + audio</strong></div>
-        <div class="stat"><small>4chan target</small><strong>3.8 MB · WebM VP8 · silent</strong></div>
+        <div class="stat"><small>4chan target</small><strong>3.8 MB · WebM VP9 · silent</strong></div>
       </div>
     </div>
   </section>
@@ -143,7 +143,19 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
   </section>
   <section class="panel" id="outputs">
     <h2>Outputs</h2>
-    <div class="checks" id="outChecks"></div>
+    <div class="checks" id="outChecks">
+      <label class="check"><input type="checkbox" id="out-discord" value="discord" checked><span><b>Discord</b> — MP4 + audio, 19 MB target, any length</span></label>
+      <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span><b>4chan</b> — WebM VP9, silent, 3.8 MB target, any length</span></label>
+      <label class="check"><input type="checkbox" id="out-socials" name="out-social" value="socials"><span><b>Socials</b> — 3-pack (Horizontal, Vertical, Square), up to 2:00</span></label>
+      <div id="socialOptions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0 8px 12px">
+        <label class="check" style="min-height:40px;padding:6px 12px;background:#181c28"><input type="checkbox" id="socialAudio" checked><span>Audio</span></label>
+        <div class="field" style="display:flex;align-items:center;gap:8px">
+          <label for="socialLimit" style="margin:0;font-size:.9rem;white-space:nowrap">Size limit (MB)</label>
+          <input id="socialLimit" type="number" inputmode="decimal" min="0" step="any" placeholder="No limit" style="width:110px;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#141824;color:#fff;font-size:1rem">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span><b>All 4chan</b> — force all selected outputs to 3.89 MB mute VP9 WebM</span></label>
+    </div>
     <label>If your clip doesn't match the output shape</label>
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
@@ -189,7 +201,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
 import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
 import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js';
 
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id) || (id==='out-social'?document.getElementById('out-socials'):null) || (id==='out-socials'?document.getElementById('out-social'):null);
 const fileInput=$('video'), go=$('go'), status=$('status'), bar=$('bar');
 const preview=$('preview'), overlay=$('overlay'), cropbox=$('cropbox'), stage=$('stage');
 let selected=null, duration=0, width=0, height=0, ffmpeg=null, installPrompt=null, previewURL=null;
@@ -238,7 +250,7 @@ const segDuration=()=>Math.max(trim.end-trim.start,0);
 function estimate() {
   const d=Math.max(segDuration(),0.1);
   const discordTotal=DISCORD_TARGET*8/d/1000;
-  const discordAudio=64;
+  const discordAudio=128;
   const discordVideo=Math.max(80,Math.floor((discordTotal-discordAudio)*.94));
   const chanTotal=CHAN_TARGET*8/d/1000;
   const chanVideo=Math.max(70,Math.floor(chanTotal*.92));
@@ -250,41 +262,80 @@ function estimate() {
   const r={discordVideo,discordAudio,chanVideo,dw,dh,cw,ch,crop:c};
   renderOutputs(r);
   const parts=[];
-  if($('out-discord')?.checked)parts.push(`Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 64 kb/s audio.`);
-  if($('out-chan')?.checked)parts.push(`4chan ${cw}×${ch} at ~${chanVideo} kb/s VP8, no audio.`);
+  if($('allChan')?.checked){
+    parts.push(`All 4chan override: all selected outputs VP9 mute WebM at ~${chanVideo} kb/s under 3.8 MB target.`);
+  }else{
+    if($('out-discord')?.checked)parts.push(`Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 128 kb/s audio.`);
+    if($('out-chan')?.checked)parts.push(`4chan ${cw}×${ch} at ~${chanVideo} kb/s VP9, no audio.`);
+    if($('out-socials')?.checked)parts.push(`Socials 3-pack (Horizontal, Vertical, Square).`);
+  }
   parts.push(`Segment ${fmtTrim(trim.start)}–${fmtTrim(trim.end)} (${segDuration().toFixed(1)} s)`+(c?`, cropped to ${c.w}×${c.h}.`:', full frame.'));
   $('estimates').textContent=`Mode: ${mode.label} — `+parts.join(' ');
   return r;
 }
 
 // ---- Outputs (batch) ----
-// Generic shape outputs (specs as of Nov 2026, see README) are NOT size-budgeted: fixed
-// frame + bitrate, real size reported afterwards. One universal length limit for all of them.
+// Generic shape outputs (specs as of Nov 2026, see README)
 const GENERIC_MAX_LEN=120; // 2:00 fits X (2:20), Shorts (3:00), Reels (3:00 for reach), TikTok (10:00)
-const OUTPUTS=[
-  {id:'discord',name:'Discord',budget:true,desc:'MP4 + audio, 19 MB target, any length',on:true},
-  {id:'chan',name:'4chan',budget:true,desc:'WebM, silent, 3.8 MB target, any length',on:true},
-  {id:'horizontal',name:'Generic Horizontal',file:'Horizontal',w:1920,h:1080,shape:'16:9',kbps:8000,desc:'16:9, 1920x1080, up to 2:00'},
-  {id:'vertical',name:'Generic Vertical',file:'Vertical',w:1080,h:1920,shape:'9:16',kbps:10000,desc:'9:16, 1080x1920, up to 2:00'},
-  {id:'square',name:'Generic Square',file:'Square',w:1080,h:1080,shape:'1:1',kbps:8000,desc:'1:1, 1080x1080, up to 2:00'},
+const SOCIAL_SHAPES=[
+  {id:'horizontal',name:'Generic Horizontal',file:'Horizontal',w:1920,h:1080,shape:'16:9',kbps:8000},
+  {id:'vertical',name:'Generic Vertical',file:'Vertical',w:1080,h:1920,shape:'9:16',kbps:10000},
+  {id:'square',name:'Generic Square',file:'Square',w:1080,h:1080,shape:'1:1',kbps:8000},
 ];
 const SOCIAL_AUDIO_KBPS=128;
-for(const o of OUTPUTS){
-  const l=document.createElement('label');l.className='check';
-  const i=document.createElement('input');i.type='checkbox';i.id='out-'+o.id;i.value=o.id;i.checked=!!o.on;
-  const sp=document.createElement('span');sp.innerHTML=`<b></b> — `;sp.firstChild.textContent=o.name;sp.append(o.desc);
-  l.append(i,sp);$('outChecks').appendChild(l);
-  i.addEventListener('change',()=>{updateGo();if(duration)estimate()});
+
+for(const id of ['out-discord','out-chan','out-socials','allChan']){
+  $(id)?.addEventListener('change',()=>{updateGo();if(duration)estimate()});
 }
+$('socialAudio')?.addEventListener('change',()=>{if(duration)estimate()});
+$('socialLimit')?.addEventListener('input',()=>{if(duration)estimate()});
+$('socialLimit')?.addEventListener('change',()=>{if(duration)estimate()});
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
-const checkedOutputs=()=>OUTPUTS.filter(o=>$('out-'+o.id).checked);
+
+const checkedOutputs=()=>{
+  const list=[];
+  if($('out-discord')?.checked)list.push({id:'discord',name:'Discord',file:'Discord',budget:true});
+  if($('out-chan')?.checked)list.push({id:'chan',name:'4chan',file:'4chan',budget:true});
+  if($('out-socials')?.checked){
+    for(const s of SOCIAL_SHAPES)list.push({...s,pack:'socials'});
+  }
+  return list;
+};
 const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked')?.value;return v==='fill'||v==='blur'?v:'fit'};
-// x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Generic. Never VP8.
+// x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Socials. Never VP9.
 const X264_PRESETS=['veryfast','superfast','ultrafast'];
 const x264Preset=()=>{const v=document.querySelector('input[name=preset]:checked')?.value;return X264_PRESETS.includes(v)?v:'veryfast'};
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
-// The shape IS the output: each Generic output has one fixed frame and bitrate.
-const socialTarget=o=>({w:o.w,h:o.h,shape:o.shape,kbps:o.kbps});
+
+function getSocialLimitMB(){
+  const raw=$('socialLimit')?.value?.trim();
+  if(!raw)return null;
+  const v=parseFloat(raw);
+  return Number.isFinite(v)&&v>0?v:null;
+}
+function getSocialAudio(){
+  const el=$('socialAudio');
+  return el?el.checked:true;
+}
+
+function socialTarget(o, d=segDuration()){
+  const limMB=getSocialLimitMB();
+  const audioOn=getSocialAudio();
+  const dur=Math.max(d, 0.1);
+  let kbps=o.kbps;
+  if(limMB!==null){
+    const audioKbps=audioOn?128:0;
+    const limitDerived=(limMB*1e6*8/dur/1000)-audioKbps;
+    if(limitDerived<200){
+      console.warn('[clip-sizer] video bitrate floor (200 kbps) reached; output may exceed size limit');
+      kbps=Math.min(o.kbps, 200);
+    }else{
+      kbps=Math.min(o.kbps, Math.round(limitDerived));
+    }
+  }
+  return {w:o.w, h:o.h, shape:o.shape, kbps, audioOn, limMB};
+}
+
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
 // Fit: scale to fit inside the frame (exact aspect), then pad with black to the frame.
 // Fill: center-crop to the frame's aspect at source resolution, then scale to the frame.
@@ -293,7 +344,7 @@ const socialTarget=o=>({w:o.w,h:o.h,shape:o.shape,kbps:o.kbps});
 // back to the frame, darkens (*0.55), in whatever format the source is in. The blur only ever
 // runs on the tiny frame. When the clip already matches the frame there are no bars: plain Fit.
 const BLUR_DIV=8, BLUR_DARKEN=0.55;
-const scaleFlags=(base='fast_bilinear')=>$('perfExperimental')?.checked?`${base}+experimental`:base;
+const scaleFlags=(base='fast_bilinear')=>$('perfExperimental')?.checked?'experimental':base;
 function socialVf(t,c,mode){
   const parts=[];
   if(c)parts.push(`crop=${c.w}:${c.h}:${c.x}:${c.y}`);
@@ -332,22 +383,31 @@ function renderOutputs(r){
   const outs=checkedOutputs(), d=segDuration(), ul=$('outSummary');
   ul.innerHTML='';
   const over=[];
+  const isAllChan=$('allChan')?.checked;
   for(const o of outs){
     const li=document.createElement('li'), L=lengthCheck(o,d);
     let txt;
-    if(o.id==='discord')txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 64 kb/s audio, two-pass — ${L.text}`;
-    else if(o.id==='chan')txt=`4chan: ${r.cw}×${r.ch}, ~${r.chanVideo} kb/s VP8, no audio, two-pass — ${L.text}`;
-    else{
-      const t=socialTarget(o), mb=(t.kbps+SOCIAL_AUDIO_KBPS)*d/8/1000;
-      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${t.kbps/1000} Mb/s video + ${SOCIAL_AUDIO_KBPS} kb/s AAC, ~${mb.toFixed(0)} MB est. — ${L.text}`;
+    if(isAllChan){
+      txt=`${o.name}: ${o.w||(o.id==='discord'?r.dw:r.cw)}×${o.h||(o.id==='discord'?r.dh:r.ch)}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 3.8 MB target`;
+    }else if(o.id==='discord'){
+      txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 128 kb/s audio, two-pass — ${L.text}`;
+    }else if(o.id==='chan'){
+      txt=`4chan: ${r.cw}×${r.ch}, ~${r.chanVideo} kb/s VP9, no audio, two-pass — ${L.text}`;
+    }else{
+      const t=socialTarget(o,d);
+      const audioKbps=t.audioOn?128:0;
+      const mb=(t.kbps+audioKbps)*d/8/1000;
+      const audioTxt=t.audioOn?'128 kb/s AAC':'no audio';
+      const limTxt=t.limMB!==null?`, limit ${t.limMB} MB`:'';
+      txt=`${o.name}: ${t.w}×${t.h} (${t.shape}, ${{fill:'fill / crop',blur:'fit / blurred background'}[aspectMode()]||'fit / black bars'}), ${(t.kbps/1000).toFixed(1)} Mb/s video + ${audioTxt}, ~${mb.toFixed(0)} MB est.${limTxt} — ${L.text}`;
     }
-    li.textContent=txt;if(!L.fits){li.className='over';over.push(o)}
+    li.textContent=txt;if(!isAllChan&&!L.fits){li.className='over';over.push(o)}
     ul.appendChild(li);
   }
   ul.hidden=!outs.length;
   const w=$('lengthWarn');
-  w.textContent=over.length?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(GENERIC_MAX_LEN)} fits-everywhere limit (${GENERIC_LIMITS_NOTE}). Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
-  w.hidden=!over.length;
+  w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(GENERIC_MAX_LEN)} fits-everywhere limit (${GENERIC_LIMITS_NOTE}). Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
+  w.hidden=!(!isAllChan&&over.length);
 }
 let busy=false,pendingRetry=false;
 function updateGo(){
@@ -640,11 +700,18 @@ async function runBatch(allowRetry){
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
+  const isAllChan=$('allChan')?.checked;
   const DLOG='dpass', CLOG='cpass';
   const discordLogs=[DLOG+'-0.log',DLOG+'-0.log.mbtree',DLOG+'-0.log.temp',DLOG+'-0.log.mbtree.temp'];
   const chanLogs=[CLOG+'-0.log'];
-  const socialTmp=o=>o.id+'.mp4';
-  const tempsFor=o=>o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
+  const socialTmp=o=>o.file+'.mp4';
+  const tempsFor=o=>{
+    if(isAllChan){
+      const passlog=`cpass_${o.file||o.id}`;
+      return [`${passlog}-0.log`, `${o.file||o.id}.webm`];
+    }
+    return o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
+  };
   let engine=null;
   try{
     try{
@@ -678,8 +745,25 @@ async function runBatch(allowRetry){
     const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
     const cropF=s.crop?`crop=${s.crop.w}:${s.crop.h}:${s.crop.x}:${s.crop.y},`:'';
     // One output at a time. Each output owns a slice of the bar (two-pass outputs weigh 2).
-    const weight=o=>o.budget?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
+    const weight=o=>(isAllChan||o.budget)?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
     const encoders={
+      async allChan(o,tag,from,span){
+        const isDiscord=o.id==='discord', isChan=o.id==='chan';
+        const t=socialTarget(o,segDuration());
+        const vf=isDiscord?`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`
+          :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
+          :socialVf(t,s.crop,mode);
+        const passlog=`cpass_${o.file||o.id}`;
+        const outName=`${o.file||o.id}.webm`;
+        const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
+        setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+        setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
+        const webm=await engine.readFile(outName);
+        saveBlob(new Blob([webm.buffer],{type:'video/webm'}),`${stem}_${o.file||o.name}.webm`);
+        return sizeLine(o.name,webm.byteLength,CHAN_CAP);
+      },
       async discord(tag,from,span){
         const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`;
         const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-passlogfile',DLOG,...thr,...fthr];
@@ -693,7 +777,7 @@ async function runBatch(allowRetry){
       },
       async chan(tag,from,span){
         const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`;
-        const vpx=['-c:v','libvpx','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
+        const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
         setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
         await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
         setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
@@ -704,11 +788,18 @@ async function runBatch(allowRetry){
       },
       // Generic outputs: single pass, fixed quality bitrate, no size budget.
       async social(o,tag,from,span){
-        const t=socialTarget(o), k=t.kbps, out=socialTmp(o);
+        const t=socialTarget(o,segDuration()), k=t.kbps, out=socialTmp(o);
+        const audioArgs=t.audioOn?['-c:a','aac','-b:a','128k','-ac','2']:['-an'];
         setPhase(`${tag}…`,from,span);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,'-c:a','aac','-b:a',SOCIAL_AUDIO_KBPS+'k','-ac','2','-movflags','+faststart',out]);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,...audioArgs,'-movflags','+faststart',out]);
         const mp4=await engine.readFile(out);
         saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
+        if(t.limMB!==null){
+          const limitBytes=t.limMB*1e6;
+          if(mp4.byteLength>limitBytes){
+            console.warn(`[clip-sizer] ${o.name} output (${mp4.byteLength} bytes) exceeded size limit (${limitBytes} bytes)`);
+          }
+        }
         const L=lengthCheck(o,segDuration());
         return `${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
       },
@@ -717,7 +808,13 @@ async function runBatch(allowRetry){
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       try{
-        lines.push(o.budget?await encoders[o.id](tag,from,span):await encoders.social(o,tag,from,span));made++;
+        if(isAllChan){
+          lines.push(await encoders.allChan(o,tag,from,span));made++;
+        }else if(o.budget){
+          lines.push(await encoders[o.id](tag,from,span));made++;
+        }else{
+          lines.push(await encoders.social(o,tag,from,span));made++;
+        }
       }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
       finally{await removeFiles(engine,tempsFor(o))}
       from+=span;
@@ -876,6 +973,8 @@ window.__safeThreads=safeThreads;
 window.__activeThreads=activeThreads;
 window.__encodeThreads=activeThreads;
 window.__scaleFlags=scaleFlags;
+window.__socialTarget=socialTarget;
+window.__checkedOutputs=checkedOutputs;
 console.info(`[clip-sizer] boot: setup=${setupState()||'none'}, crossOriginIsolated=${self.crossOriginIsolated===true}, restartedThisTab=${!!store.get('sessionStorage',RESTARTED_KEY)}`);
 showSetup(!setupState());
 </script>

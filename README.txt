@@ -12,24 +12,42 @@ On the first visit in a browser, Clip Sizer shows a First setup screen with a **
 
 ## Use
 Choose a video, optionally trim and crop it, check the outputs you want, review the estimates, then press **Go**. One file is made per checked output, one at a time (never in parallel, to spare phone memory). Discord and 4chan are checked by default:
-- Discord: MP4 / H.264 / AAC stereo, target 19 MB (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
-- 4chan: WebM / VP8 / no audio, target 3.8 MB (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm`
+- Discord: MP4 / H.264 / AAC stereo (128 kb/s), target 19 MB (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
+- 4chan: WebM / VP9 / no audio, target 3.8 MB (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan)
 
-## Generic outputs (specs as of Nov 2026 — platforms change these; check before a big upload)
-Three generic shapes replace per-service boxes: one file per shape, one length limit for all of them. All are MP4, H.264 High (x264 preset from the Speed setting, default veryfast, yuv420p, keyframe every 60 frames, maxrate 1.2x, bufsize 2x, faststart) + AAC 128 kb/s stereo, 30 fps, single pass. They are NOT size-budgeted: size is not the binding limit where these files go, length and shape are. Each uses a fixed quality bitrate and the app reports the real size afterwards. Unchecked by default.
+## Formats & Socials pack (specs as of Nov 2026 — platforms change these; check before a big upload)
+Pick Formats offers three choices: Discord (H.264 + AAC 128k), 4chan (Mute VP9), and Socials (3-pack, H.264 + AAC 128k), plus a debug "All 4chan" override flag.
 
-| Output | Frame | Video | Audio | File |
+The Socials pack replaces the three separate shape checkboxes with ONE checkbox that produces all three shapes in one run:
+- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 10 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default veryfast), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Blur) applied per shape. Unchecked by default.
+
+| Output | Frame | Video target | Audio | File |
 |---|---|---|---|---|
-| Generic Horizontal | 16:9, 1920x1080 | 8000 kb/s | AAC 128k stereo | `name_Horizontal.mp4` |
-| Generic Vertical | 9:16, 1080x1920 | 10000 kb/s | AAC 128k stereo | `name_Vertical.mp4` |
-| Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo | `name_Square.mp4` |
+| Generic Horizontal | 16:9, 1920x1080 | 8000 kb/s | AAC 128k stereo (or mute) | `name_Horizontal.mp4` |
+| Generic Vertical | 9:16, 1080x1920 | 10000 kb/s | AAC 128k stereo (or mute) | `name_Vertical.mp4` |
+| Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo (or mute) | `name_Square.mp4` |
+
+**Global size limit (Socials pack):**
+A single number input for file size limit in MB applies to all three Socials shapes equally:
+- Blank = no limit (default; preserves standard bitrate targets).
+- When set: video bitrate becomes `min(existing target, limit-derived bitrate)` where limit-derived bitrate = `(limit_bytes × 8 / duration_seconds) - audio_kbps` (using 1 MB = 1,000,000 bytes).
+- Floor: never computes below 200 kbps (logs a console warning if floor is reached). If an encoded file exceeds the limit, a console warning is logged (no new UI). Discord and 4chan are unaffected.
+
+**Global audio checkbox (Socials pack):**
+A single checkbox (default checked) applies to all three Socials shapes:
+- Checked = AAC 128 kb/s stereo.
+- Unchecked = removes audio track (`-an`) from all three Socials shapes and sets audio allowance to 0 in the size limit math.
+- Discord keeps AAC 128k and 4chan remains mute, unaffected by this control.
+
+**"All 4chan" debug flag (CPU path):**
+A debug override checkbox (default off). When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap), ignoring audio and size limit settings. Frame shapes and composition (Fit / Fill / Blur) remain intact.
 
 **One file posts everywhere** (at 2:00 or under):
 - Vertical 9:16 posts to X, YouTube Shorts, Instagram Reels and TikTok.
 - Square 1:1 posts to X, YouTube Shorts, Instagram Reels and TikTok.
 - Horizontal 16:9 posts natively to X and uploads elsewhere (a 16:9 file is not a Short and does not fill a vertical feed).
 
-**One universal limit: 2:00.** 2:00 fits everywhere: X allows 2:20, Shorts 3:00, Reels 3:00 for reach (longer Reels still post but are not recommended to non-followers), TikTok 10:00. The size limits on those services are far above what these bitrates produce, so no size caps are applied.
+**One universal limit: 2:00.** 2:00 fits everywhere: X allows 2:20, Shorts 3:00, Reels 3:00 for reach (longer Reels still post but are not recommended to non-followers), TikTok 10:00. The size limits on those services are far above what these bitrates produce, so no size caps are applied unless the Socials size limit input is set.
 
 **Single pass for Generic outputs.** Discord and 4chan use two-pass encoding because they must hit a tight size target accurately. The Generic outputs have generous quality bitrates and no size target, so single-pass (preset veryfast) is the better time/quality trade on a phone, especially in a batch.
 
@@ -39,14 +57,14 @@ Three generic shapes replace per-service boxes: one file per shape, one length l
 - **Blur — blurred background**: like Fit (whole picture, nothing cut, nothing stretched), but the bars are a blurred, darkened copy of the clip instead of black. Made for 16:9 game clips going to Vertical. The background is cheap by construction: the clip is shrunk to 1/8 of the frame (covering it), converted to linear light, box-blurred while tiny, scaled back up to the frame, darkened and converted back. If the clip already matches the output shape there are no bars, and Blur is the same as Fit.
 Order: your manual crop first, then fit/fill/blur, then scale to the frame, then 30 fps.
 
-**Speed** (Veryfast default / Superfast / Ultrafast): the x264 preset for the MP4 files — Discord (both passes) and all Generic outputs. Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP8) is not affected.
+**Speed** (Veryfast default / Superfast / Ultrafast): the x264 preset for the MP4 files — Discord (both passes) and Socials. Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP9) is not affected.
 
 **Performance options (opt-in):** Three checkboxes at the bottom of the options area, all off by default with no persistence across loads:
-- **Experimental speed:** appends `+experimental` to every scale filter's flags (`flags=fast_bilinear+experimental`) across all pipelines.
+- **Experimental speed:** replaces the scale filter flag with `flags=experimental` across all pipelines.
 - **Use all cores:** uses the full hardware concurrency (`navigator.hardwareConcurrency`) for x264 encoder `-threads` on the multithreaded core instead of the safe-guess formula.
 - **Threaded filters:** adds `-filter_threads <N>` with the active thread count to the encode arguments to enable threaded filter graph processing.
 
-**Format passthrough & fast blur.** Pixel format conversions are never forced: `-pix_fmt yuv420p` is omitted from all outputs, and the blur background chain avoids format conversions (`format=gbrp` and `format=yuv420p` are removed). Sources remain in their native format (e.g. RGB in → 4:4:4 out for H.264, YUV in → YUV out; 4chan VP8 auto-negotiates yuv420p per libvpx requirements).
+**Format passthrough & fast blur.** Pixel format conversions are never forced: `-pix_fmt yuv420p` is omitted from all outputs, and the blur background chain avoids format conversions (`format=gbrp` and `format=yuv420p` are removed). Sources remain in their native format (e.g. RGB in → 4:4:4 out for H.264, YUV in → YUV out; 4chan VP9 auto-negotiates yuv420p per libvpx-vp9 requirements).
 
 **Length warnings.** Every checked Generic output shows whether the trimmed clip fits the 2:00 fits-everywhere limit. Over 2:00, a warning names the outputs and the per-service limits. The app never re-trims your clip for you, and Go still runs (you might be splitting the clip yourself, or posting only where longer clips are allowed).
 
@@ -56,7 +74,7 @@ If a finished file is over its hard cap, the status line says so next to its rea
 - **Quick lengths (30s / 1m / 2m):** set the end to start + that length, clamped to the end of the video (if the clip is shorter, the actual trimmed length is shown). 2m is the fits-everywhere length: a Generic file of 2:00 or less posts to X, Shorts, Reels and TikTok.
 - **Crop:** turn on "Draw / adjust crop" and drag on the preview (draw, move, or drag edges/corners), or type x/y/width/height. The box snaps to even pixels. "Reset crop" returns to the full frame. Crop is applied before scaling.
 - **Quality / resolution slider:** "High Resolution, Low Bitrate" keeps bigger frames, "High Quality, Low Res" downscales sooner for a cleaner picture, "Mixed" (default) is the original behavior. It only changes frame size; size targets and bitrates do not change. It affects Discord and 4chan only; the Generic outputs use the fixed frames and bitrates above.
-- **Two-pass encoding:** the Discord and 4chan files are encoded in two passes for better quality and more accurate sizes. This takes roughly twice as long as a single pass.
+- **Two-pass encoding:** the Discord and 4chan files (and all outputs when All 4chan is enabled) are encoded in two passes for better quality and more accurate sizes. This takes roughly twice as long as a single pass.
 
 The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, or on first Go). Video processing happens in the browser; the selected video is not uploaded to a server.
 
@@ -66,7 +84,7 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Explicit states, preflight, and stage-specific errors.** Engine readiness (`idle | loading | ready | failed`) and file readiness (`none | picked | verified | stale`) are tracked explicitly rather than inferred from object existence or error strings. At Go time, a lightweight preflight probe verifies that the picked file handle remains readable before encoding starts. If a stale handle fails to re-read (common on mobile after backgrounding or cloud picks), the app acknowledges that the preview succeeded, explains that the file must be re-read for encoding, and prompts to choose the video again without auto-retrying a dead handle or suggesting unrelated video shortening. Auto-retry is restricted exclusively to encoder download failures.
 
-**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling.
+**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats`).
 
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
