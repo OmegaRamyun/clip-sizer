@@ -1,6 +1,6 @@
 {
-  "name": "Clip Sizer",
-  "short_name": "Clip Sizer",
+  "name": "Compression Protocol",
+  "short_name": "Compression Protocol",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#10121a",
