@@ -133,7 +133,7 @@ button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
 .warn{color:var(--warn)}
 .err{color:var(--err);font-size:0.9rem;margin:8px 0 0}
 #trimError,#outMsg{background:var(--err-dim);border:1px solid var(--err-line);border-radius:8px;padding:8px 12px}
-#trimError[hidden],#outMsg[hidden],#quickNote[hidden],#lengthWarn[hidden]{display:none !important}
+#trimError[hidden],#outMsg[hidden],#quickNote[hidden],#lengthWarn[hidden],#presetWarn[hidden],#aspectLabel[hidden],#aspectGroup[hidden],#aspectNote[hidden]{display:none !important}
 label{display:block;margin:12px 0 6px;color:var(--muted);font-size:0.92rem;font-weight:600}
 input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);background:transparent;cursor:pointer}
 .field{min-width:0}
@@ -500,7 +500,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + cap720 + gradbg</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -555,8 +555,14 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <button type="button" class="secondary" id="resetTrim">Whole video</button>
     </div>
     <div class="row" id="quickLengths">
+      <button type="button" class="secondary" data-len="5">5s</button>
+      <button type="button" class="secondary" data-len="10">10s</button>
+      <button type="button" class="secondary" data-len="15">15s</button>
+      <button type="button" class="secondary" data-len="20">20s</button>
       <button type="button" class="secondary" data-len="30">30s</button>
+      <button type="button" class="secondary" data-len="45">45s</button>
       <button type="button" class="secondary" data-len="60">1m</button>
+      <button type="button" class="secondary" data-len="90">1m30</button>
       <button type="button" class="secondary" data-len="120">2m</button>
     </div>
     <p class="note" id="quickNote" hidden></p>
@@ -587,23 +593,26 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <h2>Outputs</h2>
     <div class="checks" id="outChecks">
       <label class="check"><input type="checkbox" id="out-discord" value="discord" checked><span class="check-body"><span class="check-name name"><b>Discord</b></span><small class="check-sub sub">MP4, 19 MB target, H264, AAC</small></span></label>
-      <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span class="check-body"><span class="check-name name"><b>4chan</b></span><small class="check-sub sub">Webm, 3.8mb target, VP9, Silent</small></span></label>
+      <label class="check"><input type="checkbox" id="out-chan" value="chan" checked><span class="check-body"><span class="check-name name"><b>4chan</b></span><small class="check-sub sub">Webm, 4.0mb target, VP9, Silent</small></span></label>
       <label class="check"><input type="checkbox" id="out-socials" name="out-social" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC</small></span></label>
     </div>
-    <label>If your clip doesn't match the output shape</label>
-    <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs">
+    <p class="note">Discord + 4chan is the default export, and it is best under a minute — 4chan clips get bit-starved at longer lengths.</p>
+    <label id="aspectLabel" hidden>If your clip doesn't match the output shape</label>
+    <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs" id="aspectGroup" hidden>
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
       <label class="check"><input type="radio" name="aspect" value="blur"><span>Gradient — sampled-color background</span></label>
     </div>
-    <p class="note">Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a thin outline around the video. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a thin outline around the video. Discord and 4chan always keep your clip's own shape.</p>
     <label>Speed</label>
     <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
-      <label class="check"><input type="radio" name="preset" value="veryfast" checked><span>Veryfast</span></label>
-      <label class="check"><input type="radio" name="preset" value="superfast"><span>Superfast</span></label>
-      <label class="check"><input type="radio" name="preset" value="ultrafast"><span>Ultrafast</span></label>
+      <label class="check"><input type="radio" name="preset" value="normal" checked><span>Normal</span></label>
+      <label class="check"><input type="radio" name="preset" value="fast"><span>Fast</span></label>
+      <label class="check"><input type="radio" name="preset" value="faster"><span>Faster</span></label>
+      <label class="check"><input type="radio" name="preset" value="veryfast"><span>Veryfast</span></label>
     </div>
     <p class="note">Faster finishes sooner but looks a little worse at the same file size. File sizes do not change. Applies to the MP4 files (Discord and Generic); the 4chan WebM is not affected.</p>
+    <p class="note warn" id="presetWarn" hidden>Veryfast is the rough-draft setting: faster, but visibly worse at these file sizes. Normal is the quality pick.</p>
 <label>Debug</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
@@ -657,7 +666,7 @@ let engineState='idle'; // 'idle' | 'loading' | 'ready' | 'failed'
 let fileState='none';   // 'none' | 'picked' | 'verified' | 'stale'
 let trim={start:0,end:0,ok:true};
 let crop={x:0,y:0,w:0,h:0};
-const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=3.8e6, CHAN_CAP=3.89e6;
+const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=4.0e6, CHAN_CAP=3.89e6;
 const fmtBytes=n => n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1e3).toFixed(0)+' KB';
 const fmtTime=s => {const m=Math.floor(s/60), sec=Math.floor(s%60);return `${m}:${String(sec).padStart(2,'0')}`};
 const fmtTrim=s => {const t=Math.round(s*10)/10, m=Math.floor(t/60), sec=(t-m*60).toFixed(1);return `${m}:${sec.padStart(4,'0')}`};
@@ -819,11 +828,11 @@ const TRADEOFF_MODES=[
   {label:'Mixed',thresholdScale:1},
   {label:'High Quality, Low Res',thresholdScale:1.65},
 ];
-const RES_TIERS=[[180,360],[350,480],[650,720]]; // [below this kb/s, max dimension]; else 1080
+const RES_TIERS=[[180,360],[350,480],[650,720]]; // [below this kb/s, max dimension]; else cap
 const currentMode=()=>TRADEOFF_MODES[Number($('mode').value)]||TRADEOFF_MODES[1];
 function dimensionsFor(maxKbps, w, h, cap, thresholdScale=1) {
   // Conservative resolution tiers based on available video bitrate, biased by the tradeoff mode.
-  let maxDim=1080;
+  let maxDim=cap;
   for(const [kbps,dim] of RES_TIERS){if(maxKbps<kbps*thresholdScale){maxDim=dim;break}}
   maxDim=Math.min(maxDim,cap);
   const scale=Math.min(1,maxDim/Math.max(w,h));
@@ -847,17 +856,17 @@ function estimate() {
   const discordAudio=128;
   const discordVideo=Math.max(80,Math.floor((discordTotal-discordAudio)*.94));
   const chanTotal=CHAN_TARGET*8/d/1000;
-  const chanVideo=Math.max(70,Math.floor(chanTotal*.92));
+  const chanVideo=Math.max(70,Math.floor(chanTotal*.97));
   const mode=currentMode(), [fw,fh]=frameSize(), c=cropRect();
   const [dw,dh]=dimensionsFor(discordVideo,fw,fh,1080,mode.thresholdScale);
-  const [cw,ch]=dimensionsFor(chanVideo,fw,fh,720,mode.thresholdScale);
+  const [cw,ch]=chanClamp(...dimensionsFor(chanVideo,fw,fh,1280,mode.thresholdScale));
   $('trimmed').textContent=`${fmtTrim(segDuration())} (${segDuration().toFixed(1)} s)`;
   $('cropstat').textContent=c?`${c.w} × ${c.h} at ${c.x},${c.y}`:'Full frame';
   const r={discordVideo,discordAudio,chanVideo,dw,dh,cw,ch,crop:c};
   renderOutputs(r);
   const parts=[];
   if($('allChan')?.checked){
-    parts.push(`All 4chan override: all selected outputs VP9 mute WebM at ~${chanVideo} kb/s under 3.8 MB target.`);
+    parts.push(`All 4chan override: all selected outputs VP9 mute WebM at ~${chanVideo} kb/s under 4.0 MB target.`);
   }else{
     if($('out-discord')?.checked)parts.push(`Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 128 kb/s audio.`);
     if($('out-chan')?.checked)parts.push(`4chan ${cw}×${ch} at ~${chanVideo} kb/s VP9, no audio.`);
@@ -881,6 +890,12 @@ const SOCIAL_AUDIO_KBPS=128;
 for(const id of ['out-discord','out-chan','out-socials','allChan']){
   $(id)?.addEventListener('change',()=>{updateGo();if(duration)estimate()});
 }
+// Veryfast quality note + Socials-only aspect controls: the aspect block only
+// matters when Socials is checked, so it stays hidden until then.
+for(const r of document.querySelectorAll('input[name=preset]'))r.addEventListener('change',()=>{$('presetWarn').hidden=document.querySelector('input[name=preset]:checked')?.value!=='veryfast'});
+const updateAspectVisibility=()=>{const show=!!$('out-socials')?.checked;for(const id of ['aspectLabel','aspectGroup','aspectNote'])$(id).hidden=!show};
+$('out-socials')?.addEventListener('change',updateAspectVisibility);
+updateAspectVisibility();
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
 
 const checkedOutputs=()=>{
@@ -894,22 +909,28 @@ const checkedOutputs=()=>{
 };
 const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked')?.value;return v==='fill'||v==='blur'?v:'fit'};
 // x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Socials. Never VP9.
-const X264_PRESETS=['veryfast','superfast','ultrafast'];
-const x264Preset=()=>{const v=document.querySelector('input[name=preset]:checked')?.value;return X264_PRESETS.includes(v)?v:'veryfast'};
+// "Normal" is the x264 default preset, medium — x264 has no preset literally called normal.
+const X264_PRESET_MAP={normal:'medium',fast:'fast',faster:'faster',veryfast:'veryfast'};
+const x264Preset=()=>X264_PRESET_MAP[document.querySelector('input[name=preset]:checked')?.value]||'medium';
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 
 function socialTarget(o){
   return {w:o.w, h:o.h, shape:o.shape, kbps:o.kbps};
 }
 
-// All 4chan override: shape-preserving 720 cap. Same long-side cap as the
-// normal 4chan path, but the output keeps its own shape (a vertical Socials
-// frame stays vertical) instead of taking the source-aspect chan dims.
-function cap720(w,h){
+// 4chan frame rule: long side floored at 960, aimed at 1280. Shape-preserving.
+// The floor only applies when the frame itself is at least 960 on the long
+// side — smaller frames and tight crops are left alone, never upscaled.
+// Same rule on the normal 4chan path and the All 4chan override.
+function chanClamp(w,h){
   const m=Math.max(w,h);
-  if(m<=720) return [w,h];
-  const k=720/m;
-  return [evenRound(w*k),evenRound(h*k)];
+  if(m<=0) return [w,h];
+  if(m>1280){const k=1280/m;return [evenRound(w*k),evenRound(h*k)]}
+  if(m<960){
+    const [fw,fh]=frameSize();
+    if(Math.max(fw,fh)>=960){const k=960/m;return [evenRound(w*k),evenRound(h*k)]}
+  }
+  return [w,h];
 }
 
 // Filter order: manual crop -> aspect conversion -> scale to target frame -> fps 30. All even.
@@ -998,8 +1019,8 @@ function renderOutputs(r){
     let txt;
     if(isAllChan){
       const [bw,bh]=[o.w||(o.id==='discord'?r.dw:r.cw),o.h||(o.id==='discord'?r.dh:r.ch)];
-      const [cw2,ch2]=cap720(bw,bh);
-      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 3.8 MB target`;
+      const [cw2,ch2]=chanClamp(bw,bh);
+      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 4.0 MB target`;
     }else if(o.id==='discord'){
       txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 128 kb/s audio, two-pass — ${L.text}`;
     }else if(o.id==='chan'){
@@ -1014,7 +1035,7 @@ function renderOutputs(r){
   }
   ul.hidden=!outs.length;
   const w=$('lengthWarn');
-  w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(GENERIC_MAX_LEN)} fits-everywhere limit (${GENERIC_LIMITS_NOTE}). Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
+  w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(GENERIC_MAX_LEN)} fits-everywhere limit (${GENERIC_LIMITS_NOTE}). Use the quick-length buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
   w.hidden=!(!isAllChan&&over.length);
   if(!busy&&selected&&fileState==='picked'){
     if(!w.hidden){
@@ -1060,13 +1081,25 @@ function applyTrim(fromFields=true){
   updateGo();
   if(trim.ok)estimate();
 }
-$('trimStart').addEventListener('change',()=>applyTrim());
-$('trimEnd').addEventListener('change',()=>applyTrim());
-$('setStart').addEventListener('click',()=>{$('trimStart').value=fmtTrim(preview.currentTime||0);applyTrim()});
-$('setEnd').addEventListener('click',()=>{$('trimEnd').value=fmtTrim(preview.currentTime||0);applyTrim()});
+// Starvation warning: trimming past 45s asks once on the upward crossing.
+// A "no" restores the previous trim. Whole-video reset is exempt (it is a
+// reset, not a duration pick); the fits-everywhere warning still covers it.
+const STARVE_WARN_S=45;
+function applyTrimWarned(){
+  const prevStart=trim.start, prevEnd=trim.end, prevDur=segDuration();
+  applyTrim();
+  if(trim.ok&&prevDur<=STARVE_WARN_S&&segDuration()>STARVE_WARN_S&&!confirm('4chan clips get starved at this rate. Are you sure?')){
+    trim.start=prevStart;trim.end=prevEnd;applyTrim(false);
+  }
+}
+$('trimStart').addEventListener('change',()=>applyTrimWarned());
+$('trimEnd').addEventListener('change',()=>applyTrimWarned());
+$('setStart').addEventListener('click',()=>{$('trimStart').value=fmtTrim(preview.currentTime||0);applyTrimWarned()});
+$('setEnd').addEventListener('click',()=>{$('trimEnd').value=fmtTrim(preview.currentTime||0);applyTrimWarned()});
 $('resetTrim').addEventListener('click',()=>{trim.start=0;trim.end=duration;applyTrim(false)});
 for(const b of $('quickLengths').children)b.addEventListener('click',()=>{
   const len=Number(b.dataset.len), q=$('quickNote');
+  if(len>=60&&!confirm('4chan clips get starved at this rate. Are you sure?'))return;
   let start=parseTime($('trimStart').value);if(Number.isNaN(start))start=trim.start;
   start=clamp(start,0,duration);
   trim.start=start;trim.end=Math.min(start+len,duration);applyTrim(false);
@@ -1447,7 +1480,7 @@ async function canHardwareEncode(codec, w, h, bitrate){
     }
   }catch{}
   try{
-    const codecStr=codec==='avc'?'avc1.42001f':codec==='vp9'?'vp09.00.10.08':codec;
+    const codecStr=codec==='avc'?'avc1.64001f':codec==='vp9'?'vp09.00.10.08':codec;
     const res=await VideoEncoder.isConfigSupported({
       codec:codecStr,
       width:w,
@@ -1471,7 +1504,7 @@ async function canHardwareEncodeOutput(o, s, d){
   const t=socialTarget(o);
   let tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
   let th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
-  if(isAllChan)[tw,th]=cap720(tw,th);
+  if(isAllChan)[tw,th]=chanClamp(tw,th);
   const codec=(isAllChan||isChan)?'vp9':'avc';
   const kbps=(isAllChan||isChan)?s.chanVideo:isDiscord?s.discordVideo:t.kbps;
   const okVideo=await canHardwareEncode(codec,tw,th,kbps*1000);
@@ -1487,7 +1520,7 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
   const t=socialTarget(o);
   let tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
   let th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
-  if(isAllChan)[tw,th]=cap720(tw,th);
+  if(isAllChan)[tw,th]=chanClamp(tw,th);
   const isVp9=isAllChan||isChan;
   const videoCodec=isVp9?'vp9':'avc';
   const codecLabel=isVp9?'VP9':'H.264';
@@ -1734,8 +1767,8 @@ async function runBatch(allowRetry){
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
       const isDiscord=o.id==='discord', isChan=o.id==='chan';
       const t=socialTarget(o);
-      const [odw,odh]=cap720(s.dw,s.dh);
-      const [otw,oth]=cap720(t.w||0,t.h||0);
+      const [odw,odh]=chanClamp(s.dw,s.dh);
+      const [otw,oth]=chanClamp(t.w||0,t.h||0);
       const tc={...t,w:otw,h:oth};
       const vf=isDiscord?{complex:false,filter:`${cropF}scale=${odw}:${odh}:flags=${scaleFlags()},fps=30`}
         :isChan?{complex:false,filter:`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`}

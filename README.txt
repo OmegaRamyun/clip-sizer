@@ -13,19 +13,19 @@ On the first visit in a browser, Compression Protocol shows a First setup screen
 ## Use
 Choose a video, optionally trim and crop it, check the outputs you want, review the estimates, then press **Go** (which appears in the mascot status bar once ready). One file is made per checked output, one at a time (never in parallel, to spare phone memory). Discord and 4chan are checked by default:
 - Discord: main: `Discord` / sub: `MP4, 19 MB target, H264, AAC` (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
-- 4chan: main: `4chan` / sub: `Webm, 3.8mb target, VP9, Silent` (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan)
+- 4chan: main: `4chan` / sub: `Webm, 4.0mb target, VP9, Silent` (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan). 4chan frames are floored at 960 and aimed at 1280 on the long side; the bitrate budget uses a 4.0 MB target with a 0.97 safety factor.
 
 When 2 or more outputs are made, finished files are delivered as ONE zip file (`name_clips.zip`), assembled using STORE (no recompression) so phone CPU/battery are not burned on already-compressed video. Single-output batches deliver that file directly. Download links appear directly in the mascot status bar upon completion. If zip creation fails, individual download links are served in the status bar as a fallback.
 
 ## Formats & Socials pack (specs as of Nov 2026 — platforms change these; check before a big upload)
 Pick Formats offers three choices formatted with name on the main line and subheading descriptions underneath:
 - Discord — main: `Discord` / sub: `MP4, 19 MB target, H264, AAC`
-- 4chan — main: `4chan` / sub: `Webm, 3.8mb target, VP9, Silent`
+- 4chan — main: `4chan` / sub: `Webm, 4.0mb target, VP9, Silent`
 - Socials — main: `Socials` / sub: `3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC`
 plus a debug "All 4chan" override flag in the Debug section (main: `All 4chan` / sub: `Force all selected outputs to 3.89 MB mute VP9 WebM`). Checkboxes without descriptions (Experimental speed, Use all cores, Threaded filters, preset radios) remain single-line labels.
 
 The Socials pack replaces the three separate shape checkboxes with ONE checkbox that produces all three shapes in one run at a flat 8 Mbps across the board:
-- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 8 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default veryfast), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Gradient) applied per shape. Unchecked by default. At 2:00, each Socials clip is at most ~120 MB (down from ~150 MB).
+- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 8 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default Normal), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Gradient) applied per shape. Unchecked by default. At 2:00, each Socials clip is at most ~120 MB (down from ~150 MB).
 
 | Output | Frame | Video target | Audio | File |
 |---|---|---|---|---|
@@ -34,7 +34,7 @@ The Socials pack replaces the three separate shape checkboxes with ONE checkbox 
 | Generic Square | 1:1, 1080x1080 | 8000 kb/s | AAC 128k stereo | `name_Square.mp4` |
 
 **"All 4chan" debug flag (CPU path):**
-A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (3.8 MB target / 3.89 MB cap). Frame shapes and composition (Fit / Fill / Gradient) remain intact, with frames capped at 720 on the long side.
+A debug override checkbox (default off) in the Debug section at the bottom of the options area. When turned on, every selected output (Discord, 4chan, Socials pack shapes) encodes as two-pass VP9 mute WebM under the 4chan cap (4.0 MB target / 3.89 MB cap). Frame shapes and composition (Fit / Fill / Gradient) remain intact, with frames floored at 960 and aimed at 1280 on the long side.
 
 **One file posts everywhere** (at 2:00 or under):
 - Vertical 9:16 posts to X, YouTube Shorts, Instagram Reels and TikTok.
@@ -43,7 +43,7 @@ A debug override checkbox (default off) in the Debug section at the bottom of th
 
 **One universal limit: 2:00.** 2:00 fits everywhere: X allows 2:20, Shorts 3:00, Reels 3:00 for reach (longer Reels still post but are not recommended to non-followers), TikTok 10:00. The size limits on those services are far above what these bitrates produce, so no size caps are applied.
 
-**Single pass for Generic outputs.** Discord and 4chan use two-pass encoding because they must hit a tight size target accurately. The Generic outputs have generous quality bitrates and no size target, so single-pass (preset veryfast) is the better time/quality trade on a phone, especially in a batch.
+**Single pass for Generic outputs.** Discord and 4chan use two-pass encoding because they must hit a tight size target accurately. The Generic outputs have generous quality bitrates and no size target, so single-pass (preset Normal) is the better time/quality trade on a phone, especially in a batch.
 
 **Fit vs Fill** (one setting for all Generic outputs: how a clip that doesn't match the output shape is converted into it; Discord/4chan always keep your clip's own shape):
 - **Fit — black bars** (default): scales the clip to fit inside the frame and pads with black. Nothing is cut and nothing is stretched. A landscape clip in the 9:16 frame gets bars above and below.
@@ -51,7 +51,7 @@ A debug override checkbox (default off) in the Debug section at the bottom of th
 - **Gradient — sampled-color background**: like Fit (whole picture, nothing cut, nothing stretched), but the bars are a dark gradient sampled from the clip's own colors instead of black, plus a thin dark outline around the video. Made for 16:9 game clips going to Vertical. The background is cheap by construction: average colors are sampled at several points of the clip, combined by median (so one flash frame can't hijack it), darkened, and rendered once as a static vertical gradient — the compressor spends ~nothing on it after the first frame. If the clip already matches the output shape there are no bars, and Gradient is the same as Fit.
 Order: your manual crop first, then fit/fill/gradient, then scale to the frame, then 30 fps.
 
-**Speed** (Veryfast default / Superfast / Ultrafast): the x264 preset for the MP4 files — Discord (both passes) and Socials. Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP9) is not affected.
+**Speed** (Normal default / Fast / Faster / Veryfast): the x264 preset for the MP4 files — Discord (both passes) and Socials. Normal maps to x264 medium (there is no preset literally called normal). Faster presets finish sooner and look a little worse at the same file size. It does not change bitrates, size targets or frame sizes, so the estimates do not move. The 4chan WebM (VP9) is not affected. Picking Veryfast shows a quality warning.
 
 **Debug options (opt-in):** Four checkboxes at the bottom of the options area, all off by default with no persistence across loads:
 - **Experimental speed:** replaces the scale filter flag with `flags=experimental` across all pipelines.
@@ -67,7 +67,7 @@ Order: your manual crop first, then fit/fill/gradient, then scale to the frame, 
 If a finished file is over its hard cap, the status line says so next to its real size.
 
 - **Trim:** set start and end (m:ss or seconds, or "Start/End = playhead" from the preview). The size budget is spread over the trimmed length only.
-- **Quick lengths (30s / 1m / 2m):** set the end to start + that length, clamped to the end of the video (if the clip is shorter, the actual trimmed length is shown). 2m is the fits-everywhere length: a Generic file of 2:00 or less posts to X, Shorts, Reels and TikTok.
+- **Quick lengths (5s / 10s / 15s / 20s / 30s / 45s / 1m / 1m30 / 2m):** set the end to start + that length, clamped to the end of the video (if the clip is shorter, the actual trimmed length is shown). 2m is the fits-everywhere length: a Generic file of 2:00 or less posts to X, Shorts, Reels and TikTok. Picking 60s or longer asks "4chan clips get starved at this rate. Are you sure?" before applying; trimming past 45s by hand asks the same on the upward crossing, and a "no" restores the previous trim.
 - **Crop:** turn on "Draw / adjust crop" and drag on the preview (draw, move, or drag edges/corners), or type x/y/width/height. The box snaps to even pixels. "Reset crop" returns to the full frame. Crop is applied before scaling.
 - **Quality / resolution slider:** "High Resolution, Low Bitrate" keeps bigger frames, "High Quality, Low Res" downscales sooner for a cleaner picture, "Mixed" (default) is the original behavior. It only changes frame size; size targets and bitrates do not change. It affects Discord and 4chan only; the Generic outputs use the fixed frames and bitrates above.
 - **Two-pass encoding:** the Discord and 4chan files (and all outputs when All 4chan is enabled) are encoded in two passes for better quality and more accurate sizes. This takes roughly twice as long as a single pass.
@@ -88,7 +88,7 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Trace-Tan mascot status bar & Signal SFX.** Trace-Tan serves as the always-there interactive status bar at the bottom of the page, unifying encode actions, live progress telemetry, and delivery downloads into her card. The Go button appears in her card only when the job is ready to encode (file chosen + format checked + valid trim). During active batch encoding, the Go button is hidden, the standalone progress element is removed, the standalone status text is suppressed, and her speech bubble speaks the live progress string (phase + output + percent) while the progress bar advances inside a dedicated fixed-height slot inside her speech bubble without layout shift. When outputs are ready, download link(s) (single zip for batches of 2+ outputs) appear directly inside her status bar, replacing the standalone Results panel (which has been removed). Emotes and status messages are wired to the application lifecycle: idle (neutral), file chosen (smug + select sound), encoding (determined), batch done (happy + achievement toast sound), error / stale file / preflight failure (dizzy with spiral eyes + dizzy sound; error details surface in status and bubble), over-length warning (shocked), update available (shocked), and First Setup (nervous). Tapping Trace-Tan plays a blush reaction with a blush emote and SFX. A 44px mute toggle persists audio preferences in localStorage (default unmuted). Idling bobs and animations strictly respect `prefers-reduced-motion` by displaying static frames.
 
-**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + cap720 + gradbg`).
+**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips`).
 
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
