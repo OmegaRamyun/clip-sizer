@@ -206,6 +206,11 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 #outSummary{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:0.85rem;line-height:1.45}
 #outSummary li{margin:4px 0;overflow-wrap:anywhere}
 #outSummary .over{color:var(--warn)}
+#socialPreviews{margin:12px 0 4px}
+#socialPreviews .social-prev-row{display:flex;gap:8px;align-items:flex-start}
+#socialPreviews .social-prev{flex:1;min-width:0}
+#socialPreviews .social-prev canvas{width:100%;height:auto;display:block;background:#000;border-radius:8px}
+#socialPreviews .social-prev-label{font-size:0.75rem;color:var(--muted);text-align:center;margin-top:4px}
 .h-nw{left:0;top:0}.h-ne{left:100%;top:0}.h-sw{left:0;top:100%}.h-se{left:100%;top:100%}
 .stamp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.82rem;color:var(--muted);margin:-4px 0 8px;line-height:1.4}
 #modeIndicator{
@@ -505,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips + switch + brightoutline + footer + gaze</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips + switch + brightoutline + footer + gaze + socialprev</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -606,7 +611,15 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
       <label class="check"><input type="radio" name="aspect" value="blur"><span>Gradient — sampled-color background</span></label>
     </div>
-    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a thin outline around the video. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a bright outline around the video. Discord and 4chan always keep your clip's own shape.</p>
+    <div id="socialPreviews" hidden>
+      <div class="social-prev-row">
+        <div class="social-prev"><canvas id="prevHorizontal"></canvas><div class="social-prev-label">Horizontal · 1920×1080</div></div>
+        <div class="social-prev"><canvas id="prevVertical"></canvas><div class="social-prev-label">Vertical · 1080×1920</div></div>
+        <div class="social-prev"><canvas id="prevSquare"></canvas><div class="social-prev-label">Square · 1080×1080</div></div>
+      </div>
+      <p class="note">Preview of one frame from the middle of your trim, with the aspect mode above applied. The encode still renders the full clip.</p>
+    </div>
     <label>Speed</label>
     <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
       <label class="check"><input type="radio" name="preset" value="normal" checked><span>Normal</span></label>
@@ -900,7 +913,7 @@ $('allChan')?.addEventListener('change',()=>{updateGo();if(duration)estimate()})
 // Veryfast quality note + Socials-only aspect controls: the aspect block only
 // matters in Socials mode, so it stays hidden until then.
 for(const r of document.querySelectorAll('input[name=preset]'))r.addEventListener('change',()=>{$('presetWarn').hidden=document.querySelector('input[name=preset]:checked')?.value!=='veryfast'});
-const updateAspectVisibility=()=>{const show=exportMode()==='socials';for(const id of ['aspectLabel','aspectGroup','aspectNote'])$(id).hidden=!show};
+const updateAspectVisibility=()=>{const show=exportMode()==='socials';for(const id of ['aspectLabel','aspectGroup','aspectNote'])$(id).hidden=!show;requestSocialPreviews()};
 updateAspectVisibility();
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
 
@@ -1013,6 +1026,74 @@ async function sampleBgColors(){
     return ['#'+m.map(x=>hx(x*0.45)).join(''),'#'+m.map(x=>hx(x*0.75)).join('')];
   }catch{ return fallback; }
 }
+// Socials crop previews: one mid-trim frame drawn into each of the 3 Socials shapes
+// with the current aspect mode + manual crop applied, so the pack is no longer blind.
+// Cheap on purpose: a single frame, small canvases, and the gradient preview samples
+// just that one frame (the encode still does its 5-point median). Previews never
+// break an encode: every failure path just leaves the last good preview up.
+let socialPrevKey='', socialPrevTimer=null, socialPrevRun=0;
+function requestSocialPreviews(){
+  const wrap=$('socialPreviews');
+  if(!wrap)return;
+  wrap.hidden=!(exportMode()==='socials'&&selected);
+  if(wrap.hidden)return;
+  clearTimeout(socialPrevTimer);
+  socialPrevTimer=setTimeout(drawSocialPreviews,350);
+}
+async function drawSocialPreviews(){
+  const wrap=$('socialPreviews'); if(!wrap||wrap.hidden)return;
+  const src=(typeof previewURL!=='undefined'&&previewURL)||$('preview')?.src;
+  if(!src||!duration)return;
+  const c=cropRect(), [fw,fh]=frameSize(), mode=aspectMode();
+  const key=[src,trim.start,trim.end,c?`${c.x},${c.y},${c.w},${c.h}`:'full',mode].join('|');
+  if(key===socialPrevKey)return;
+  const run=++socialPrevRun;
+  try{
+    const v=document.createElement('video');
+    v.muted=true;v.playsInline=true;v.preload='auto';v.src=src;
+    await new Promise((res,rej)=>{v.onloadedmetadata=()=>res();v.onerror=()=>rej(new Error('metadata'));});
+    const d=Math.max(segDuration(),0.1), mid=trim.start+d/2, end=v.duration||trim.start+d;
+    v.currentTime=Math.min(mid,Math.max(0,end-0.05));
+    await new Promise(res=>{const to=setTimeout(res,3000);v.onseeked=()=>{clearTimeout(to);res();};});
+    if(run!==socialPrevRun)return;
+    const pc=document.createElement('canvas');pc.width=32;pc.height=32;
+    const px=pc.getContext('2d',{willReadFrequently:true});
+    px.drawImage(v,0,0,32,32);
+    const data=px.getImageData(0,0,32,32).data;
+    let r=0,g=0,b=0,n=0;
+    for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];n++;}
+    const hx=x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0');
+    const prevGrad=['#'+[r/n,g/n,b/n].map(x=>hx(x*0.45)).join(''),'#'+[r/n,g/n,b/n].map(x=>hx(x*0.75)).join('')];
+    const sx=c?c.x:0, sy=c?c.y:0, sw=fw, sh=fh;
+    for(const t of SOCIAL_SHAPES){
+      const cv=$('prev'+t.file); if(!cv)continue;
+      const scale=Math.min(1,240/Math.max(t.w,t.h));
+      cv.width=Math.max(2,Math.round(t.w*scale)); cv.height=Math.max(2,Math.round(t.h*scale));
+      const cx2=cv.getContext('2d');
+      const kx=cv.width/t.w, ky=cv.height/t.h;
+      if(mode==='fill'){
+        const A=t.w/t.h;
+        if(fw/fh>A){const aw=fh*A, ox=(fw-aw)/2; cx2.drawImage(v,sx+ox,sy,aw,sh,0,0,cv.width,cv.height);}
+        else{const ah=fw/A, oy=(fh-ah)/2; cx2.drawImage(v,sx,sy+oy,sw,ah,0,0,cv.width,cv.height);}
+      }else{
+        if(mode==='blur'){
+          const g2=cx2.createLinearGradient(0,0,0,cv.height);
+          g2.addColorStop(0,prevGrad[0]); g2.addColorStop(1,prevGrad[1]);
+          cx2.fillStyle=g2; cx2.fillRect(0,0,cv.width,cv.height);
+        }else{cx2.fillStyle='#000000'; cx2.fillRect(0,0,cv.width,cv.height);}
+        const k=Math.min(t.w/fw,t.h/fh), dw=evenRound(fw*k), dh=evenRound(fh*k);
+        const dx=evenDown((t.w-dw)/2), dy=gazeY(t.w,t.h,dh);
+        cx2.drawImage(v,sx,sy,sw,sh,dx*kx,dy*ky,dw*kx,dh*ky);
+        if(mode==='blur'){
+          const lum=h=>{const n=parseInt(h.slice(1),16);return ((n>>16)&255)+((n>>8)&255)+(n&255);};
+          cx2.strokeStyle=brightFrom(lum(prevGrad[0])>=lum(prevGrad[1])?prevGrad[0]:prevGrad[1]);
+          cx2.lineWidth=3; cx2.strokeRect(dx*kx+1.5,dy*ky+1.5,dw*kx-3,dh*ky-3);
+        }
+      }
+    }
+    socialPrevKey=key;
+  }catch{ /* previews never break an encode */ }
+}
 // Length compliance: warn only, never re-trim.
 const GENERIC_LIMITS_NOTE='X 2:20, Shorts 3:00, Reels 3:00 for reach, TikTok 10:00';
 function lengthCheck(o,d){
@@ -1055,6 +1136,7 @@ function renderOutputs(r){
       setMascotState('file-chosen');
     }
   }
+  requestSocialPreviews();
 }
 let busy=false,pendingRetry=false;
 function updateGo(){
@@ -1229,6 +1311,7 @@ fileInput.addEventListener('change',()=>{
     status.textContent='Ready. Adjust trim, crop, and the quality slider if you like, then press Go.';
     updateGo();
     setMascotState('file-chosen', true);
+    requestSocialPreviews();
   };
   preview.onerror=()=>{fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();setMascotState('error')};
   preview.src=previewURL;
