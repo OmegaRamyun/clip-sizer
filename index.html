@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v31</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v32</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -1290,6 +1290,10 @@ $('mode').addEventListener('input',syncMode);syncMode();
 fileInput.addEventListener('change',()=>{
   unlockAudio();
   selected=fileInput.files?.[0]||null;
+  // Clear the input so picking the SAME file again fires 'change'. Without this,
+  // re-picking a clip that went stale is a no-op: the dead handle stays, Go stays
+  // disabled, and the "choose the video again" message leads nowhere.
+  fileInput.value='';
   fileState=selected?'picked':'none';
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('links').hidden=true;$('links').innerHTML='';bar.style.width='0%';const pEl=$('mascotProgress');if(pEl)pEl.style.opacity='0';
   duration=0;$('quickNote').hidden=true;updateGo();
@@ -1771,20 +1775,26 @@ async function runBatch(allowRetry){
   }
   if(!duration||!trim.ok)return;
 
-  // Preflight check: verify file handle is readable before attempting encode or full read
+  // Preflight check: verify file handle is readable before attempting encode or full read.
+  // Two attempts: right after a heavy encode, a first-byte re-read can transiently
+  // fail on phones (memory pressure / content-provider hiccup). One retry converts
+  // those into a normal run instead of a permanent stale lockout.
   let probeOk=false;
-  try{
-    const slice=selected.slice(0,1);
-    if(typeof slice.arrayBuffer==='function')await slice.arrayBuffer();
-    await new Promise((resolve,reject)=>{
-      const fr=new FileReader();
-      fr.onload=()=>resolve();
-      fr.onerror=()=>reject(fr.error||new Error('preflight failed'));
-      fr.readAsArrayBuffer(slice);
-    });
-    probeOk=true;
-  }catch{
-    probeOk=false;
+  for(let attempt=0;attempt<2&&!probeOk;attempt++){
+    if(attempt)await new Promise(r=>setTimeout(r,300));
+    try{
+      const slice=selected.slice(0,1);
+      if(typeof slice.arrayBuffer==='function')await slice.arrayBuffer();
+      await new Promise((resolve,reject)=>{
+        const fr=new FileReader();
+        fr.onload=()=>resolve();
+        fr.onerror=()=>reject(fr.error||new Error('preflight failed'));
+        fr.readAsArrayBuffer(slice);
+      });
+      probeOk=true;
+    }catch{
+      probeOk=false;
+    }
   }
   if(!probeOk){
     fileState='stale';
