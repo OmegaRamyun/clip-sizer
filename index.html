@@ -254,6 +254,200 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 .link-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 #go{min-width:120px;font-size:1.05rem}
 #links .download{margin:6px 0}
+
+/* Trace-Tan mascot companion & Signal SFX UI */
+:root {
+  --mascot-size: 72px;
+}
+.mascot-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  position: relative;
+  min-height: 84px;
+  box-sizing: border-box;
+}
+.mascot-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  width: var(--mascot-size);
+  height: var(--mascot-size);
+  min-width: var(--mascot-size);
+  min-height: var(--mascot-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 50%;
+  outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.mascot-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.mascot-avatar {
+  display: block;
+  width: var(--mascot-size);
+  height: var(--mascot-size);
+  background-image: url('assets/trace-tan-mascot.png');
+  background-size: calc(var(--mascot-size) * 4) calc(var(--mascot-size) * 2);
+  background-repeat: no-repeat;
+  pointer-events: none;
+  animation: mascot-bob 2.6s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes mascot-dizzy-anim {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(-6deg); }
+  75% { transform: translateY(2px) rotate(6deg); }
+}
+@keyframes mascot-blush-anim {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08) translateY(-3px); }
+}
+@keyframes mascot-bounce {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-8px); }
+  60% { transform: translateY(-3px); }
+}
+
+/* Sprite coordinates: 4 columns x 2 rows of 160x160 cells */
+.mascot-avatar[data-emote="neutral"]    { background-position: 0 0; }
+.mascot-avatar[data-emote="smug"]       { background-position: calc(-1 * var(--mascot-size)) 0; }
+.mascot-avatar[data-emote="happy"]      { background-position: calc(-2 * var(--mascot-size)) 0; animation: mascot-bounce 0.8s ease-in-out infinite; }
+.mascot-avatar[data-emote="shocked"]    { background-position: calc(-3 * var(--mascot-size)) 0; }
+.mascot-avatar[data-emote="blush"]      { background-position: 0 calc(-1 * var(--mascot-size)); animation: mascot-blush-anim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.mascot-avatar[data-emote="dizzy"]      { background-position: calc(-1 * var(--mascot-size)) calc(-1 * var(--mascot-size)); animation: mascot-dizzy-anim 0.6s ease-in-out infinite; }
+.mascot-avatar[data-emote="nervous"]    { background-position: calc(-2 * var(--mascot-size)) calc(-1 * var(--mascot-size)); }
+.mascot-avatar[data-emote="determined"] { background-position: calc(-3 * var(--mascot-size)) calc(-1 * var(--mascot-size)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-avatar,
+  .mascot-avatar[data-emote] {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+.mascot-bubble {
+  flex: 1;
+  min-width: 0;
+  height: 64px;
+  box-sizing: border-box;
+  background: var(--panel-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.mascot-bubble::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid var(--line-strong);
+}
+.mascot-bubble::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -5px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 5px solid var(--panel-inset);
+}
+.mascot-speaker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  line-height: 1;
+  user-select: none;
+}
+.mascot-text {
+  font-size: 0.84rem;
+  line-height: 1.3;
+  color: var(--text-bright);
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.mascot-mute-btn {
+  background: var(--panel-inset);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: border-color var(--t-fast), color var(--t-fast), background-color var(--t-fast);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.mascot-mute-btn:hover {
+  color: var(--text-bright);
+  border-color: var(--line-strong);
+  background: var(--panel);
+}
+.mascot-mute-btn:active {
+  transform: scale(0.96);
+}
+.mascot-mute-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.mascot-mute-btn[aria-pressed="true"] {
+  border-color: var(--err-line);
+  color: var(--err);
+}
 </style>
 </head>
 <body>
@@ -261,7 +455,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -271,6 +465,18 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
         <button type="button" class="secondary" id="updateDismiss">Dismiss</button>
       </div>
     </div>
+  </div>
+  <div class="mascot-card" id="mascotCard">
+    <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
+      <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
+    </button>
+    <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
+      <div class="mascot-speaker">TRACE-TAN</div>
+      <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
+    </div>
+    <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
+      <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
+    </button>
   </div>
   <section class="panel" id="setup" hidden>
     <h2>First setup</h2>
@@ -419,6 +625,142 @@ const fmtTrim=s => {const t=Math.round(s*10)/10, m=Math.floor(t/60), sec=(t-m*60
 const even=n=>Math.max(2,Math.floor(n/2)*2);
 const evenDown=n=>Math.max(0,Math.floor(n/2)*2);
 const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+
+// ---- Mascot (Trace-Tan) companion & SFX ----
+const MASCOT_SOUNDS = {
+  blush: 'assets/sfx/emote-blush.wav',
+  dizzy: 'assets/sfx/emote-spiral-dizzy.wav',
+  done: 'assets/sfx/achievement-toast.wav',
+  select: 'assets/sfx/select-v3.wav'
+};
+const FLAVOR_LINES = {
+  idle: 'Feed me a clip, Anon~',
+  setup: 'Grabbing the engine once. Hang tight~',
+  'file-chosen': "Nice clip. Let's see how much we can squeeze it.",
+  encoding: "Crunching frames... don't close the tab, Anon~",
+  done: 'Done! Clean and under the cap~',
+  error: 'Woah... bit budget blew up. Check the logs.',
+  stale: 'File handle vanished! Pick the clip again, Anon~',
+  warning: "Over two minutes? That won't fit everywhere, Anon~",
+  update: "Fresh bits on deck. Reload when you're ready~",
+  blush: "Hey! Don't poke the compressor~"
+};
+const EMOTE_MAP = {
+  idle: 'neutral',
+  setup: 'nervous',
+  'file-chosen': 'smug',
+  encoding: 'determined',
+  done: 'happy',
+  error: 'dizzy',
+  stale: 'dizzy',
+  warning: 'shocked',
+  update: 'shocked',
+  blush: 'blush'
+};
+
+const MUTE_KEY = 'compression-protocol-muted';
+let audioMuted = false;
+try {
+  audioMuted = localStorage.getItem(MUTE_KEY) === 'true';
+} catch {}
+let audioUnlocked = false;
+let lastPlayedSound = null;
+
+function unlockAudio() {
+  audioUnlocked = true;
+}
+window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+window.addEventListener('keydown', unlockAudio, { once: true, passive: true });
+
+function playMascotSound(key) {
+  if (audioMuted || !audioUnlocked) return;
+  const url = MASCOT_SOUNDS[key];
+  if (!url) return;
+  lastPlayedSound = key;
+  try {
+    const audio = new Audio(url);
+    const p = audio.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => {});
+    }
+  } catch (err) {
+    // Graceful silence: missing or blocked audio must never interrupt the app
+  }
+}
+
+function updateMuteUI() {
+  const btn = $('mascotMuteBtn');
+  const icon = $('mascotMuteIcon');
+  if (!btn || !icon) return;
+  btn.setAttribute('aria-pressed', String(audioMuted));
+  btn.setAttribute('aria-label', audioMuted ? 'Unmute mascot sounds' : 'Mute mascot sounds');
+  btn.setAttribute('title', audioMuted ? 'Unmute sounds' : 'Mute sounds');
+  icon.textContent = audioMuted ? '🔇' : '🔊';
+}
+
+function toggleMute() {
+  audioMuted = !audioMuted;
+  try {
+    localStorage.setItem(MUTE_KEY, String(audioMuted));
+  } catch {}
+  updateMuteUI();
+}
+
+let currentMascotState = 'idle';
+let blushTimer = null;
+
+function setMascotState(state, forceSound = false) {
+  if (blushTimer) {
+    clearTimeout(blushTimer);
+    blushTimer = null;
+  }
+  currentMascotState = state;
+  const emote = EMOTE_MAP[state] || 'neutral';
+  const msg = FLAVOR_LINES[state] || FLAVOR_LINES.idle;
+  const avatar = $('mascotAvatar');
+  const msgEl = $('mascotMsg');
+  if (avatar) {
+    avatar.setAttribute('data-emote', emote);
+    avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
+  }
+  if (msgEl) {
+    msgEl.textContent = msg;
+  }
+  if (state === 'error' || state === 'stale') {
+    playMascotSound('dizzy');
+  } else if (state === 'done') {
+    playMascotSound('done');
+  } else if (state === 'file-chosen' && forceSound) {
+    playMascotSound('select');
+  }
+}
+
+function pokeMascot() {
+  unlockAudio();
+  playMascotSound('blush');
+  const avatar = $('mascotAvatar');
+  const msgEl = $('mascotMsg');
+  if (avatar) {
+    avatar.setAttribute('data-emote', 'blush');
+    avatar.setAttribute('aria-label', 'Trace-Tan emote: blush');
+  }
+  if (msgEl) {
+    msgEl.textContent = FLAVOR_LINES.blush;
+  }
+  if (blushTimer) clearTimeout(blushTimer);
+  blushTimer = setTimeout(() => {
+    blushTimer = null;
+    const emote = EMOTE_MAP[currentMascotState] || 'neutral';
+    const msg = FLAVOR_LINES[currentMascotState] || FLAVOR_LINES.idle;
+    if (avatar) {
+      avatar.setAttribute('data-emote', emote);
+      avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
+    }
+    if (msgEl) {
+      msgEl.textContent = msg;
+    }
+  }, 2500);
+}
 
 // Quality / resolution tradeoff. thresholdScale multiplies the bitrate thresholds of the
 // resolution tiers: <1 lets a given bitrate keep a bigger frame, >1 downscales sooner.
@@ -611,6 +953,13 @@ function renderOutputs(r){
   const w=$('lengthWarn');
   w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(GENERIC_MAX_LEN)} fits-everywhere limit (${GENERIC_LIMITS_NOTE}). Use the 30s / 1m / 2m buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
   w.hidden=!(!isAllChan&&over.length);
+  if(!busy&&selected&&fileState==='picked'){
+    if(!w.hidden){
+      setMascotState('warning');
+    }else if(currentMascotState==='warning'){
+      setMascotState('file-chosen');
+    }
+  }
 }
 let busy=false,pendingRetry=false;
 function updateGo(){
@@ -747,16 +1096,17 @@ function syncMode(){
 $('mode').addEventListener('input',syncMode);syncMode();
 
 fileInput.addEventListener('change',()=>{
+  unlockAudio();
   selected=fileInput.files?.[0]||null;
   fileState=selected?'picked':'none';
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('results').hidden=true;$('links').innerHTML='';
   go.disabled=true;duration=0;$('quickNote').hidden=true;
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
-  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';updateGo();return}
+  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';updateGo();setMascotState('idle');return}
   previewURL=URL.createObjectURL(selected);
   preview.onloadedmetadata=()=>{
     duration=preview.duration;width=preview.videoWidth;height=preview.videoHeight;
-    if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();return}
+    if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();setMascotState('error');return}
     $('duration').textContent=fmtTime(duration);
     $('resolution').textContent=`${width} × ${height}`;
     stage.style.aspectRatio=`${width} / ${height}`;
@@ -769,8 +1119,9 @@ fileInput.addEventListener('change',()=>{
     fileState='picked';
     status.textContent='Ready. Adjust trim, crop, and the quality slider if you like, then press Go.';
     updateGo();
+    setMascotState('file-chosen', true);
   };
-  preview.onerror=()=>{fileState='none';status.textContent='Could not read this video. Try another file.';updateGo()};
+  preview.onerror=()=>{fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();setMascotState('error')};
   preview.src=previewURL;
 });
 
@@ -1191,11 +1542,13 @@ async function runBatch(allowRetry){
   const outs=checkedOutputs();
   if(busy)return;
   if(!selected||fileState==='none'){
+    setMascotState('idle');
     status.textContent='Select a video to begin.';
     updateGo();
     return;
   }
   if(fileState==='stale'){
+    setMascotState('stale');
     status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
     updateGo();
     return;
@@ -1224,6 +1577,7 @@ async function runBatch(allowRetry){
   }
   if(!probeOk){
     fileState='stale';
+    setMascotState('stale');
     status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
     updateGo();
     return;
@@ -1231,6 +1585,7 @@ async function runBatch(allowRetry){
   fileState='verified';
 
   busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
+  setMascotState('encoding');
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
   const ext=(selected.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
   const input='input.'+ext;
@@ -1260,6 +1615,7 @@ async function runBatch(allowRetry){
     try{
       engine=await loadFFmpeg();
     }catch(err){
+      setMascotState('error');
       if(allowRetry&&engineState==='failed'){
         ffmpeg=null;
         pendingRetry=true;
@@ -1269,13 +1625,14 @@ async function runBatch(allowRetry){
       }
       throw err;
     }
-    if(engineState==='failed')throw new Error('Encoder download failed.');
+    if(engineState==='failed'){setMascotState('error');throw new Error('Encoder download failed.');}
     status.textContent='Reading source video…';
     let fileBuffer;
     try{
       fileBuffer=await fetchFile(selected);
     }catch{
       fileState='stale';
+      setMascotState('stale');
       status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
       throw new Error('file stale');
     }
@@ -1385,6 +1742,7 @@ async function runBatch(allowRetry){
     phase={label:'',from:0,span:0};
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
+    setMascotState(!failed ? 'done' : 'error');
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
     if(madeOutputs.length===1){
       saveBlob(madeOutputs[0].blob,madeOutputs[0].name);
@@ -1401,6 +1759,7 @@ async function runBatch(allowRetry){
     }
   }catch(e){
     phase={label:'',from:0,span:0};
+    setMascotState('error');
     status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
   }finally{
     if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
@@ -1410,7 +1769,7 @@ async function runBatch(allowRetry){
 }
 window.__engineState=()=>engineState;
 window.__fileState=()=>fileState;
-go.addEventListener('click',()=>runBatch(true));
+go.addEventListener('click',()=>{unlockAudio();runBatch(true);});
 updateGo();
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('install').hidden=false});
 $('install').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('install').hidden=true});
@@ -1420,11 +1779,17 @@ function showUpdatePrompt(){
   if(updateDismissed)return;
   const p=$('updatePrompt');
   if(p)p.hidden=false;
+  if(currentMascotState==='idle'||currentMascotState==='file-chosen'){
+    setMascotState('update');
+  }
 }
 function hideUpdatePrompt(){
   const p=$('updatePrompt');
   if(p)p.hidden=true;
   updateDismissed=true;
+  if(currentMascotState==='update'){
+    setMascotState(selected?'file-chosen':'idle');
+  }
 }
 $('updateReload')?.addEventListener('click',()=>location.reload());
 $('updateDismiss')?.addEventListener('click',hideUpdatePrompt);
@@ -1467,6 +1832,8 @@ function showSetup(on){
   $('setup').hidden=!on;$('app').hidden=on;
   $('setupAgain').hidden=on||setupState()==='done';
   if(on&&$('modeIndicator'))$('modeIndicator').hidden=true;
+  if(on) setMascotState('setup');
+  else if(!selected) setMascotState('idle');
 }
 function resetSetupUI(){$('setupGo').disabled=false;$('setupStatus').textContent='';$('setupBar').style.width='0%'}
 async function warmFiles(urls,onProgress){
@@ -1501,6 +1868,7 @@ async function runSetup(){
   }catch(e){
     console.info('[clip-sizer] setup: download failed ('+(e?.message||e)+')');
     setupBusy=false;resetSetupUI();
+    setMascotState('error');
     msg.textContent='Download failed. Check connection and tap Download FFMPEG to retry.';
     return;
   }
@@ -1569,6 +1937,16 @@ window.__setHardwareMode=setHardwareMode;
 window.__showCpuMode=showCpuMode;
 window.__loadJSZip=loadJSZip;
 window.__buildZip=buildZip;
+$('mascotBtn')?.addEventListener('click',pokeMascot);
+$('mascotMuteBtn')?.addEventListener('click',toggleMute);
+updateMuteUI();
+window.__mascotState=()=>currentMascotState;
+window.__mascotEmote=()=>$('mascotAvatar')?.getAttribute('data-emote');
+window.__mascotMuted=()=>audioMuted;
+window.__unlockAudio=unlockAudio;
+window.__setMascotState=setMascotState;
+window.__pokeMascot=pokeMascot;
+window.__lastPlayedSound=()=>lastPlayedSound;
 console.info(`[clip-sizer] boot: setup=${setupState()||'none'}, crossOriginIsolated=${self.crossOriginIsolated===true}, restartedThisTab=${!!store.get('sessionStorage',RESTARTED_KEY)}`);
 showSetup(!setupState());
 </script>
