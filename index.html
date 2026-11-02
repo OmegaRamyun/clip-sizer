@@ -58,7 +58,7 @@ input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent)}
   <h1>Clip Sizer</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -636,6 +636,7 @@ async function loadFFmpeg(){
   ffmpeg=inst;
   engineMT=mt;
   engineState='ready';
+  showCpuMode();
   updateModeIndicator();
   console.info(`[clip-sizer] encoder loaded: ${mt?'core-mt, -threads '+activeThreads():'core (single-threaded)'}; crossOriginIsolated=${self.crossOriginIsolated===true}`);
   return ffmpeg;
@@ -652,6 +653,293 @@ function saveBlob(blob,name){
   $('links').appendChild(a);
 }
 const sizeLine=(name,bytes,cap)=>`${name}: ${fmtBytes(bytes)}`+(bytes>cap?` — OVER the ${fmtBytes(cap)} hard cap, it may not upload; trim shorter and try again.`:` (under the ${fmtBytes(cap)} cap)`);
+// ---- Hardware engine (WebCodecs + Mediabunny) ----
+let mb=null, mbVersion=null, mbLoading=null;
+let hardwareSupported=false, aacEncoderAvailable=false;
+let currentModeType=null, currentModeCodec=null;
+
+function setHardwareMode(codec){
+  currentModeType='hardware';
+  currentModeCodec=codec||null;
+  const el=$('modeIndicator');
+  if(!el||!$('setup').hidden)return;
+  el.textContent=codec?`Hardware · ${codec}`:'Hardware';
+  el.hidden=false;
+}
+
+function showCpuMode(){
+  currentModeType='cpu';
+  updateModeIndicator();
+}
+
+async function detectAacSupport(){
+  if(!mb)return false;
+  try{
+    if(typeof mb.canEncodeAudio==='function'){
+      const nativeAac=await mb.canEncodeAudio('aac',{numberOfChannels:2,sampleRate:48000,bitrate:128000});
+      if(nativeAac){
+        aacEncoderAvailable=true;
+        return true;
+      }
+    }
+  }catch{}
+  try{
+    let aacMod=null;
+    try{
+      aacMod=await import(`https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@${mbVersion}/+esm`);
+    }catch{
+      try{
+        aacMod=await import('https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder/+esm');
+      }catch{}
+    }
+    if(typeof aacMod?.registerAacEncoder==='function'){
+      aacMod.registerAacEncoder(mb);
+      if(typeof mb.canEncodeAudio==='function'){
+        const wasmAac=await mb.canEncodeAudio('aac',{numberOfChannels:2,sampleRate:48000,bitrate:128000});
+        if(wasmAac){
+          aacEncoderAvailable=true;
+          return true;
+        }
+      }
+    }
+  }catch(err){
+    console.info('[clip-sizer] @mediabunny/aac-encoder not available:',err?.message||err);
+  }
+  aacEncoderAvailable=false;
+  return false;
+}
+
+async function initHardwareEngine(){
+  if(typeof VideoEncoder==='undefined'||typeof VideoDecoder==='undefined'||typeof VideoFrame==='undefined'){
+    console.info('[clip-sizer] WebCodecs not supported; hardware engine unavailable');
+    return;
+  }
+  try{
+    let version=null;
+    try{
+      const r=await fetch('https://data.jsdelivr.com/v1/packages/npm/mediabunny/resolved');
+      if(r.ok){
+        const d=await r.json();
+        if(d?.version)version=d.version;
+      }
+    }catch{}
+    if(!version){
+      try{
+        const r=await fetch('https://registry.npmjs.org/mediabunny/latest');
+        if(r.ok){
+          const d=await r.json();
+          if(d?.version)version=d.version;
+        }
+      }catch{}
+    }
+    if(!version){
+      console.info('[clip-sizer] could not resolve Mediabunny version; hardware engine unavailable');
+      return;
+    }
+    mbVersion=version;
+    const mod=await import(`https://cdn.jsdelivr.net/npm/mediabunny@${version}/+esm`);
+    mb=mod;
+    hardwareSupported=true;
+    console.info(`[clip-sizer] hardware engine ready: Mediabunny v${version}`);
+    await detectAacSupport();
+  }catch(err){
+    console.info('[clip-sizer] failed to initialize hardware engine:',err?.message||err);
+    mb=null;
+    hardwareSupported=false;
+  }
+}
+mbLoading=initHardwareEngine();
+
+async function canHardwareEncode(codec, w, h, bitrate){
+  if(!mb||typeof VideoEncoder==='undefined')return false;
+  try{
+    if(typeof mb.canEncodeVideo==='function'){
+      const ok=await mb.canEncodeVideo(codec,{width:w,height:h,bitrate,frameRate:30});
+      if(ok)return true;
+    }
+  }catch{}
+  try{
+    const codecStr=codec==='avc'?'avc1.42001f':codec==='vp9'?'vp09.00.10.08':codec;
+    const res=await VideoEncoder.isConfigSupported({
+      codec:codecStr,
+      width:w,
+      height:h,
+      bitrate,
+      framerate:30
+    });
+    return !!res?.supported;
+  }catch{
+    return false;
+  }
+}
+
+async function canHardwareEncodeOutput(o, s, d){
+  if(window.__forceEngine==='cpu')return false;
+  if(mbLoading)try{await mbLoading}catch{}
+  if(!hardwareSupported||!mb||typeof VideoEncoder==='undefined')return false;
+  const isAllChan=$('allChan')?.checked;
+  const isDiscord=o.id==='discord';
+  const isChan=o.id==='chan';
+  const t=socialTarget(o,d);
+  const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
+  const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  const codec=(isAllChan||isChan)?'vp9':'avc';
+  const kbps=(isAllChan||isChan)?s.chanVideo:isDiscord?s.discordVideo:t.kbps;
+  const okVideo=await canHardwareEncode(codec,tw,th,kbps*1000);
+  if(!okVideo)return false;
+  if(!isAllChan&&!isChan){
+    const needsAudio=isDiscord||t.audioOn;
+    if(needsAudio&&!aacEncoderAvailable)return false;
+  }
+  return true;
+}
+
+async function encodeHardware(o, tag, from, span, s, mode, d, stem){
+  if(window.__forceHardwareFail)throw new Error('Forced hardware failure');
+  const isAllChan=$('allChan')?.checked;
+  const isDiscord=o.id==='discord', isChan=o.id==='chan';
+  const t=socialTarget(o,d);
+  const tw=isAllChan?(isDiscord?s.dw:isChan?s.cw:t.w):isDiscord?s.dw:isChan?s.cw:t.w;
+  const th=isAllChan?(isDiscord?s.dh:isChan?s.ch:t.h):isDiscord?s.dh:isChan?s.ch:t.h;
+  const isVp9=isAllChan||isChan;
+  const videoCodec=isVp9?'vp9':'avc';
+  const codecLabel=isVp9?'VP9':'H.264';
+  const mimeType=isVp9?'video/webm':'video/mp4';
+  const outName=isAllChan?`${stem}_${o.file||o.name}.webm`:isDiscord?`${stem}_Discord.mp4`:isChan?`${stem}_4chan.webm`:`${stem}_${o.file}.mp4`;
+  const cap=(isAllChan||isChan)?CHAN_CAP:isDiscord?DISCORD_CAP:(t.limMB!==null?t.limMB*1e6:null);
+
+  setHardwareMode(codecLabel);
+  setPhase(`${tag} (hardware)…`,from,span);
+
+  let videoKbps=(isAllChan||isChan)?s.chanVideo:isDiscord?s.discordVideo:t.kbps;
+  const minKbps=(isAllChan||isChan)?70:isDiscord?80:200;
+
+  // Canvas compositing setup
+  const canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(tw,th):document.createElement('canvas');
+  canvas.width=tw;canvas.height=th;
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw new Error('Canvas 2D context unavailable');
+
+  const c=s.crop;
+  const sx=c?c.x:0, sy=c?c.y:0, sw=c?c.w:width, sh=c?c.h:height;
+
+  let processFrame=null;
+  const isSocialPack=o.pack||(!isDiscord&&!isChan);
+  const effectiveMode=isSocialPack?mode:'fit';
+
+  if(effectiveMode==='fit'){
+    const k=Math.min(tw/sw,th/sh);
+    const dw=Math.min(tw,evenRound(sw*k)), dh=Math.min(th,evenRound(sh*k));
+    const dx=evenDown((tw-dw)/2), dy=evenDown((th-dh)/2);
+    processFrame=(sample)=>{
+      ctx.fillStyle='#000000';
+      ctx.fillRect(0,0,tw,th);
+      sample.draw(ctx,sx,sy,sw,sh,dx,dy,dw,dh);
+      return canvas;
+    };
+  }else if(effectiveMode==='fill'){
+    const A=tw/th;
+    let aw,ah;
+    if(sw/sh>A){ah=evenDown(sh);aw=Math.min(evenDown(sw),evenRound(ah*A))}
+    else{aw=evenDown(sw);ah=Math.min(evenDown(sh),evenRound(aw/A))}
+    const ox=evenDown((sw-aw)/2), oy=evenDown((sh-ah)/2);
+    const subX=sx+ox, subY=sy+oy, subW=aw, subH=ah;
+    processFrame=(sample)=>{
+      sample.draw(ctx,subX,subY,subW,subH,0,0,tw,th);
+      return canvas;
+    };
+  }else if(effectiveMode==='blur'){
+    const k=Math.min(tw/sw,th/sh);
+    const dw=Math.min(tw,evenRound(sw*k)), dh=Math.min(th,evenRound(sh*k));
+    if(dw===tw&&dh===th){
+      processFrame=(sample)=>{
+        sample.draw(ctx,sx,sy,sw,sh,0,0,tw,th);
+        return canvas;
+      };
+    }else{
+      const dx=evenDown((tw-dw)/2), dy=evenDown((th-dh)/2);
+      const bw=evenRound(tw/BLUR_DIV), bh=evenRound(th/BLUR_DIV);
+      const blurCanvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(bw,bh):document.createElement('canvas');
+      blurCanvas.width=bw;blurCanvas.height=bh;
+      const blurCtx=blurCanvas.getContext('2d');
+      const kCover=Math.max(bw/sw,bh/sh);
+      const cw=sw*kCover, ch=sh*kCover;
+      const cx=(bw-cw)/2, cy=(bh-ch)/2;
+      processFrame=(sample)=>{
+        sample.draw(blurCtx,sx,sy,sw,sh,cx,cy,cw,ch);
+        ctx.filter='blur(6px)';
+        ctx.drawImage(blurCanvas,0,0,tw,th);
+        ctx.filter='none';
+        ctx.fillStyle=`rgba(0,0,0,${(1-BLUR_DARKEN).toFixed(2)})`;
+        ctx.fillRect(0,0,tw,th);
+        sample.draw(ctx,sx,sy,sw,sh,dx,dy,dw,dh);
+        return canvas;
+      };
+    }
+  }
+
+  // Audio config
+  let audioConfig={discard:true};
+  if(!isAllChan&&!isChan){
+    const needsAudio=isDiscord||t.audioOn;
+    if(needsAudio){
+      audioConfig={
+        codec:'aac',
+        quality:new mb.Quality({bitrate:128000,bitrateMode:'constant'}),
+        numberOfChannels:2
+      };
+    }
+  }
+
+  const trimConfig=(trim.start>0||trim.end<duration-0.05)?{start:trim.start,end:trim.end}:undefined;
+
+  let finalBlob=null;
+  const maxRetries=cap?2:0;
+  for(let attempt=0;attempt<=maxRetries;attempt++){
+    if(attempt>0){
+      setPhase(`${tag} retry ${attempt} of ${maxRetries}…`,from,span);
+    }
+    const outputFormat=isVp9?new mb.WebMOutputFormat():new mb.Mp4OutputFormat({fastStart:'in-memory'});
+    const target=new mb.BufferTarget();
+    const conv=await mb.Conversion.init({
+      input:new mb.Input({source:new mb.BlobSource(selected),formats:mb.ALL_FORMATS}),
+      output:new mb.Output({format:outputFormat,target}),
+      video:{
+        codec:videoCodec,
+        quality:new mb.Quality({bitrate:videoKbps*1000,bitrateMode:'constant'}),
+        frameRate:30,
+        process:processFrame,
+        processedWidth:tw,
+        processedHeight:th
+      },
+      audio:audioConfig,
+      trim:trimConfig,
+      showWarnings:false
+    });
+    conv.onProgress=(prog)=>{
+      phaseProgress(prog);
+    };
+    await conv.execute();
+    finalBlob=new Blob([target.buffer],{type:mimeType});
+    if(!cap||finalBlob.size<=cap||videoKbps<=minKbps){
+      break;
+    }
+    const ratio=cap/finalBlob.size;
+    videoKbps=Math.max(minKbps,Math.floor(videoKbps*ratio*0.95));
+  }
+
+  saveBlob(finalBlob,outName);
+  if(isAllChan||o.budget){
+    return sizeLine(o.name,finalBlob.size,cap);
+  }else{
+    if(t.limMB!==null&&finalBlob.size>t.limMB*1e6){
+      console.warn(`[clip-sizer] ${o.name} output (${finalBlob.size} bytes) exceeded size limit (${t.limMB*1e6} bytes)`);
+    }
+    const L=lengthCheck(o,d);
+    return `${o.name}: ${fmtBytes(finalBlob.size)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
+  }
+}
+
 async function runBatch(allowRetry){
   applyTrim();
   const outs=checkedOutputs();
@@ -712,8 +1000,17 @@ async function runBatch(allowRetry){
     }
     return o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
   };
-  let engine=null;
-  try{
+
+  const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
+  phaseDur=Math.max(segDuration(),0.1);
+  const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
+  const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
+  const cropF=s.crop?`crop=${s.crop.w}:${s.crop.h}:${s.crop.x}:${s.crop.y},`:'';
+  const weight=o=>(isAllChan||o.budget)?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
+
+  let engine=null, cpuEngineReady=false;
+  async function ensureCpuEngine(){
+    if(cpuEngineReady&&engine&&engineState==='ready')return engine;
     try{
       engine=await loadFFmpeg();
     }catch(err){
@@ -724,106 +1021,125 @@ async function runBatch(allowRetry){
       }else{
         status.textContent=err?.message||'Encoder download failed. Check connection and press Go again to retry.';
       }
+      throw err;
     }
-    if(engineState!=='failed'){
-      const thr=engineMT?['-threads',String(activeThreads())]:[]; // encoder thread cap, multithreaded core only
+    if(engineState==='failed')throw new Error('Encoder download failed.');
+    status.textContent='Reading source video…';
+    let fileBuffer;
+    try{
+      fileBuffer=await fetchFile(selected);
+    }catch{
+      fileState='stale';
+      status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+      throw new Error('file stale');
+    }
+    await engine.writeFile(input,fileBuffer);
+    cpuEngineReady=true;
+    return engine;
+  }
+
+  const encoders={
+    async allChan(o,tag,from,span){
+      const thr=engineMT?['-threads',String(activeThreads())]:[];
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
-      status.textContent='Reading source video…';
-      let fileBuffer;
-      try{
-        fileBuffer=await fetchFile(selected);
-      }catch{
-        fileState='stale';
-        status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
-      }
-      if(fileState!=='stale'){
-        await engine.writeFile(input,fileBuffer);
-    const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
-    phaseDur=Math.max(segDuration(),0.1);
-    // Input seeking (-ss before -i) and output duration (-t); omitted when not trimmed.
-    const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
-    const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
-    const cropF=s.crop?`crop=${s.crop.w}:${s.crop.h}:${s.crop.x}:${s.crop.y},`:'';
-    // One output at a time. Each output owns a slice of the bar (two-pass outputs weigh 2).
-    const weight=o=>(isAllChan||o.budget)?2:1, total=outs.reduce((a,o)=>a+weight(o),0);
-    const encoders={
-      async allChan(o,tag,from,span){
-        const isDiscord=o.id==='discord', isChan=o.id==='chan';
-        const t=socialTarget(o,segDuration());
-        const vf=isDiscord?`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`
-          :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
-          :socialVf(t,s.crop,mode);
-        const passlog=`cpass_${o.file||o.id}`;
-        const outName=`${o.file||o.id}.webm`;
-        const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
-        setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
-        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
-        setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
-        const webm=await engine.readFile(outName);
-        saveBlob(new Blob([webm.buffer],{type:'video/webm'}),`${stem}_${o.file||o.name}.webm`);
-        return sizeLine(o.name,webm.byteLength,CHAN_CAP);
-      },
-      async discord(tag,from,span){
-        const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`;
-        const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-passlogfile',DLOG,...thr,...fthr];
-        setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
-        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
-        setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart','discord.mp4']);
-        const mp4=await engine.readFile('discord.mp4');
-        saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
-        return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
-      },
-      async chan(tag,from,span){
-        const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`;
-        const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
-        setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
-        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
-        setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
-        const webm=await engine.readFile('4chan.webm');
-        saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
-        return sizeLine('4chan',webm.byteLength,CHAN_CAP);
-      },
-      // Generic outputs: single pass, fixed quality bitrate, no size budget.
-      async social(o,tag,from,span){
-        const t=socialTarget(o,segDuration()), k=t.kbps, out=socialTmp(o);
-        const audioArgs=t.audioOn?['-c:a','aac','-b:a','128k','-ac','2']:['-an'];
-        setPhase(`${tag}…`,from,span);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,...audioArgs,'-movflags','+faststart',out]);
-        const mp4=await engine.readFile(out);
-        saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
-        if(t.limMB!==null){
-          const limitBytes=t.limMB*1e6;
-          if(mp4.byteLength>limitBytes){
-            console.warn(`[clip-sizer] ${o.name} output (${mp4.byteLength} bytes) exceeded size limit (${limitBytes} bytes)`);
-          }
+      const isDiscord=o.id==='discord', isChan=o.id==='chan';
+      const t=socialTarget(o,segDuration());
+      const vf=isDiscord?`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`
+        :isChan?`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`
+        :socialVf(t,s.crop,mode);
+      const passlog=`cpass_${o.file||o.id}`;
+      const outName=`${o.file||o.id}.webm`;
+      const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
+      setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+      setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',vf,...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
+      const webm=await engine.readFile(outName);
+      saveBlob(new Blob([webm.buffer],{type:'video/webm'}),`${stem}_${o.file||o.name}.webm`);
+      return sizeLine(o.name,webm.byteLength,CHAN_CAP);
+    },
+    async discord(tag,from,span){
+      const thr=engineMT?['-threads',String(activeThreads())]:[];
+      const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
+      const dvf=`${cropF}scale=${s.dw}:${s.dh}:flags=${scaleFlags()},fps=30`;
+      const x264=['-c:v','libx264','-preset',preset,'-b:v',s.discordVideo+'k','-maxrate',Math.floor(s.discordVideo*1.12)+'k','-bufsize',Math.max(100,s.discordVideo*2)+'k','-passlogfile',DLOG,...thr,...fthr];
+      setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
+      setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
+      await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart','discord.mp4']);
+      const mp4=await engine.readFile('discord.mp4');
+      saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
+      return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
+    },
+    async chan(tag,from,span){
+      const thr=engineMT?['-threads',String(activeThreads())]:[];
+      const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
+      const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`;
+      const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
+      setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+      setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
+      const webm=await engine.readFile('4chan.webm');
+      saveBlob(new Blob([webm.buffer],{type:'video/webm'}),stem+'_4chan.webm');
+      return sizeLine('4chan',webm.byteLength,CHAN_CAP);
+    },
+    async social(o,tag,from,span){
+      const thr=engineMT?['-threads',String(activeThreads())]:[];
+      const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
+      const t=socialTarget(o,segDuration()), k=t.kbps, out=socialTmp(o);
+      const audioArgs=t.audioOn?['-c:a','aac','-b:a','128k','-ac','2']:['-an'];
+      setPhase(`${tag}…`,from,span);
+      await run(engine,[...seek,'-i',input,...dur,'-vf',socialVf(t,s.crop,mode),'-c:v','libx264','-preset',preset,'-profile:v','high','-b:v',k+'k','-maxrate',Math.floor(k*1.2)+'k','-bufsize',(k*2)+'k','-g','60',...thr,...fthr,...audioArgs,'-movflags','+faststart',out]);
+      const mp4=await engine.readFile(out);
+      saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),`${stem}_${o.file}.mp4`);
+      if(t.limMB!==null){
+        const limitBytes=t.limMB*1e6;
+        if(mp4.byteLength>limitBytes){
+          console.warn(`[clip-sizer] ${o.name} output (${mp4.byteLength} bytes) exceeded size limit (${limitBytes} bytes)`);
         }
-        const L=lengthCheck(o,segDuration());
-        return `${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
-      },
-    };
-    const lines=[];let failed=0,made=0,from=0;
+      }
+      const L=lengthCheck(o,segDuration());
+      return `${o.name}: ${fmtBytes(mp4.byteLength)} (${t.w}×${t.h})`+(L.fits?'':` — ${L.text}`);
+    },
+  };
+
+  const lines=[];let failed=0,made=0,from=0;
+  try{
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
-      try{
-        if(isAllChan){
-          lines.push(await encoders.allChan(o,tag,from,span));made++;
-        }else if(o.budget){
-          lines.push(await encoders[o.id](tag,from,span));made++;
-        }else{
-          lines.push(await encoders.social(o,tag,from,span));made++;
+      let line=null;
+      const canHw=await canHardwareEncodeOutput(o,s,segDuration());
+      if(canHw){
+        try{
+          line=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
+          made++;
+        }catch(hwErr){
+          console.info(`[clip-sizer] hardware encode failed for ${o.name}, falling back to CPU:`,hwErr?.message||hwErr);
+          line=null;
         }
-      }catch(e){failed++;lines.push(`${o.name}: Encoding failed: `+(e?.message||e))}
-      finally{await removeFiles(engine,tempsFor(o))}
+      }
+      if(line===null){
+        try{
+          await ensureCpuEngine();
+          showCpuMode();
+          if(isAllChan){
+            line=await encoders.allChan(o,tag,from,span);made++;
+          }else if(o.budget){
+            line=await encoders[o.id](tag,from,span);made++;
+          }else{
+            line=await encoders.social(o,tag,from,span);made++;
+          }
+        }catch(e){failed++;line=`${o.name}: Encoding failed: `+(e?.message||e)}
+        finally{if(engine)await removeFiles(engine,tempsFor(o))}
+      }
+      lines.push(line);
       from+=span;
     }
     phase={label:'',from:0,span:0};
     $('results').hidden=!made;bar.style.width='100%';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
     status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
-    }}
   }catch(e){
     phase={label:'',from:0,span:0};
     status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
@@ -949,7 +1265,17 @@ function tryFastSetup(){
 function updateModeIndicator(){
   const el=$('modeIndicator');
   if(!el)return;
-  if(engineState!=='ready'||!$('setup').hidden){
+  if(!$('setup').hidden){
+    el.hidden=true;
+    el.innerHTML='';
+    return;
+  }
+  if(currentModeType==='hardware'){
+    el.textContent=currentModeCodec?`Hardware · ${currentModeCodec}`:'Hardware';
+    el.hidden=false;
+    return;
+  }
+  if(engineState!=='ready'){
     el.hidden=true;
     el.innerHTML='';
     return;
@@ -975,6 +1301,13 @@ window.__encodeThreads=activeThreads;
 window.__scaleFlags=scaleFlags;
 window.__socialTarget=socialTarget;
 window.__checkedOutputs=checkedOutputs;
+window.__mb=()=>mb;
+window.__mbVersion=()=>mbVersion;
+window.__hardwareSupported=()=>hardwareSupported;
+window.__aacEncoderAvailable=()=>aacEncoderAvailable;
+window.__canHardwareEncodeOutput=canHardwareEncodeOutput;
+window.__setHardwareMode=setHardwareMode;
+window.__showCpuMode=showCpuMode;
 console.info(`[clip-sizer] boot: setup=${setupState()||'none'}, crossOriginIsolated=${self.crossOriginIsolated===true}, restartedThisTab=${!!store.get('sessionStorage',RESTARTED_KEY)}`);
 showSetup(!setupState());
 </script>
