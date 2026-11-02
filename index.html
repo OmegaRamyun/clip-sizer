@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips + switch + brightoutline + footer + gaze + socialprev + outline2px</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips + switch + brightoutline + footer + gaze + socialprev + outline2px + outlinedim + filenames</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -605,13 +605,14 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="exportMode" value="base" checked><span class="check-body"><span class="check-name name"><b>Discord + 4chan</b></span><small class="check-sub sub">Default · Best under a minute</small></span></label>
       <label class="check"><input type="radio" name="exportMode" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">3 clips · Limits at 2:20 for X</small></span></label>
     </div>
+    <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — used in file names, e.g. Shadow Protocol"></div>
     <label id="aspectLabel" hidden>If your clip doesn't match the output shape</label>
     <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs" id="aspectGroup" hidden>
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
       <label class="check"><input type="radio" name="aspect" value="blur"><span>Gradient — sampled-color background</span></label>
     </div>
-    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a bright 2px outline just outside the video. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a subtle 2px outline just outside the video. Discord and 4chan always keep your clip's own shape.</p>
     <div id="socialPreviews" hidden>
       <div class="social-prev-row">
         <div class="social-prev"><canvas id="prevHorizontal"></canvas><div class="social-prev-label">Horizontal · 1920×1080</div></div>
@@ -965,7 +966,7 @@ function chanClamp(w,h){
 let bgGradient=null;
 // Outline color for the Gradient mode frame: the lighter sampled stop, blended
 // toward white so the frame stays visible against its own dark gradient.
-const brightFrom=hex=>{const n=parseInt(hex.slice(1),16);const f=c=>Math.min(255,Math.round(c+(255-c)*0.6));return '#'+[f((n>>16)&255),f((n>>8)&255),f(n&255)].map(x=>x.toString(16).padStart(2,'0')).join('')};
+const brightFrom=hex=>{const n=parseInt(hex.slice(1),16);const f=c=>Math.min(255,Math.round(c+(255-c)*0.3));return '#'+[f((n>>16)&255),f((n>>8)&255),f(n&255)].map(x=>x.toString(16).padStart(2,'0')).join('')};
 const outlineColor=()=>{const g=bgGradient||['#0c0d11','#232733'];const lum=h=>{const n=parseInt(h.slice(1),16);return ((n>>16)&255)+((n>>8)&255)+(n&255)};return brightFrom(lum(g[0])>=lum(g[1])?g[0]:g[1]);};
 const scaleFlags=(base='fast_bilinear')=>$('perfExperimental')?.checked?'experimental':base;
 function socialVf(t,c,mode){
@@ -1814,7 +1815,10 @@ async function runBatch(allowRetry){
     return o.id==='discord'?[...discordLogs,'discord.mp4']:o.id==='chan'?[...chanLogs,'4chan.webm']:[socialTmp(o)];
   };
 
-  const stem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
+  const fileStem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
+  const clipStem=(($('clipName')?.value||'').trim().replace(/[^a-z0-9 _-]+/gi,'').replace(/\s+/g,'_').slice(0,50))||fileStem;
+  const stamp=(()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;})();
+  const stem=`${clipStem}_${stamp}`;
   phaseDur=Math.max(segDuration(),0.1);
   const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
   const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
