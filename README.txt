@@ -11,21 +11,20 @@ A PWA cannot be installed reliably by opening a local HTML file. It needs HTTPS 
 On the first visit in a browser, Compression Protocol shows a First setup screen with a **Download FFMPEG** button. It downloads FFMPEG WASM (about 30–40 MB, the same download that otherwise happens on the first Go) and restarts the app once. After that the app opens straight to "Choose a video". There is no voluntary skip option; single-threaded encoding is used only as a fallback when cross-origin isolation or the multithreaded core cannot be loaded. If download fails, tap Download FFMPEG to retry.
 
 ## Use
-Choose a video, optionally trim and crop it, check the outputs you want, review the estimates, then press **Go** (which appears in the mascot status bar once ready). One file is made per checked output, one at a time (never in parallel, to spare phone memory). Discord and 4chan are checked by default:
+Choose a video, optionally trim and crop it, pick the export mode, review the estimates, then press **Go** (which appears in the mascot status bar once ready). One file is made per output, one at a time (never in parallel, to spare phone memory). Discord + 4chan is the default export mode:
 - Discord: main: `Discord` / sub: `MP4, 19 MB target, H264, AAC` (hard output cap 19.9 MB; Discord limit 20 MB) → `name_Discord.mp4`
 - 4chan: main: `4chan` / sub: `Webm, 4.0mb target, VP9, Silent` (hard output cap 3.89 MB; 4chan limit 3.9 MB) → `name_4chan.webm` (CPU VP9 is slower than CPU VP8 was; the hardware path is the fast one for 4chan). 4chan frames are floored at 960 and aimed at 1280 on the long side; the bitrate budget uses a 4.0 MB target with a 0.97 safety factor.
 
 When 2 or more outputs are made, finished files are delivered as ONE zip file (`name_clips.zip`), assembled using STORE (no recompression) so phone CPU/battery are not burned on already-compressed video. Single-output batches deliver that file directly. Download links appear directly in the mascot status bar upon completion. If zip creation fails, individual download links are served in the status bar as a fallback.
 
 ## Formats & Socials pack (specs as of Nov 2026 — platforms change these; check before a big upload)
-Pick Formats offers three choices formatted with name on the main line and subheading descriptions underneath:
-- Discord — main: `Discord` / sub: `MP4, 19 MB target, H264, AAC`
-- 4chan — main: `4chan` / sub: `Webm, 4.0mb target, VP9, Silent`
-- Socials — main: `Socials` / sub: `3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC`
+Outputs offers a two-way switch formatted with name on the main line and subheading descriptions underneath:
+- Discord + 4chan — main: `Discord + 4chan` / sub: `Default · Best under a minute` (Discord: MP4, 19 MB target, H264, AAC; 4chan: Webm, 4.0mb target, VP9, Silent)
+- Socials — main: `Socials` / sub: `3 clips · Limits at 2:20 for X` (3 Clips. 1080p. Landscape, Portrait, Square, 8mbps H264, AAC)
 plus a debug "All 4chan" override flag in the Debug section (main: `All 4chan` / sub: `Force all selected outputs to 3.89 MB mute VP9 WebM`). Checkboxes without descriptions (Experimental speed, Use all cores, Threaded filters, preset radios) remain single-line labels.
 
 The Socials pack replaces the three separate shape checkboxes with ONE checkbox that produces all three shapes in one run at a flat 8 Mbps across the board:
-- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 8 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default Normal), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Gradient) applied per shape. Unchecked by default. At 2:00, each Socials clip is at most ~120 MB (down from ~150 MB).
+- Horizontal 1920×1080 @ 8 Mbps, Vertical 1080×1920 @ 8 Mbps, Square 1080×1080 @ 8 Mbps — MP4, H.264 High (x264 preset from the Speed setting, default Normal), AAC 128 kb/s stereo, 30 fps, single pass, faststart, with the selected background mode (Fit / Fill / Gradient) applied per shape. Socials mode is opt-in (flip the switch). At 2:00, each Socials clip is at most ~120 MB (down from ~150 MB).
 
 | Output | Frame | Video target | Audio | File |
 |---|---|---|---|---|
@@ -62,7 +61,7 @@ Order: your manual crop first, then fit/fill/gradient, then scale to the frame, 
 
 **Format passthrough.** Pixel format conversions are never forced: `-pix_fmt yuv420p` is omitted from all outputs. Sources remain in their native format (e.g. RGB in → 4:4:4 out for H.264, YUV in → YUV out; 4chan VP9 auto-negotiates yuv420p per libvpx-vp9 requirements). The gradient background is generated in-graph (gradients source) and composited with overlay; no explicit format conversions are inserted.
 
-**Length warnings.** Every checked Generic output shows whether the trimmed clip fits the 2:00 fits-everywhere limit. Over 2:00, a warning names the outputs and the per-service limits. The app never re-trims your clip for you, and Go still runs (you might be splitting the clip yourself, or posting only where longer clips are allowed).
+**Length warnings.** Every Socials output shows whether the trimmed clip fits the 2:20 X limit. Over 2:20, a warning names the outputs and the per-service limits. The app never re-trims your clip for you, and Go still runs (you might be splitting the clip yourself, or posting only where longer clips are allowed). Discord and 4chan outputs have no length warning: they are governed by their size budgets.
 
 If a finished file is over its hard cap, the status line says so next to its real size.
 
@@ -88,7 +87,7 @@ The encoder is FFmpeg.wasm and is downloaded from jsDelivr (during First setup, 
 
 **Trace-Tan mascot status bar & Signal SFX.** Trace-Tan serves as the always-there interactive status bar at the bottom of the page, unifying encode actions, live progress telemetry, and delivery downloads into her card. The Go button appears in her card only when the job is ready to encode (file chosen + format checked + valid trim). During active batch encoding, the Go button is hidden, the standalone progress element is removed, the standalone status text is suppressed, and her speech bubble speaks the live progress string (phase + output + percent) while the progress bar advances inside a dedicated fixed-height slot inside her speech bubble without layout shift. When outputs are ready, download link(s) (single zip for batches of 2+ outputs) appear directly inside her status bar, replacing the standalone Results panel (which has been removed). Emotes and status messages are wired to the application lifecycle: idle (neutral), file chosen (smug + select sound), encoding (determined), batch done (happy + achievement toast sound), error / stale file / preflight failure (dizzy with spiral eyes + dizzy sound; error details surface in status and bubble), over-length warning (shocked), update available (shocked), and First Setup (nervous). Tapping Trace-Tan plays a blush reaction with a blush emote and SFX. A 44px mute toggle persists audio preferences in localStorage (default unmuted). Idling bobs and animations strictly respect `prefers-reduced-motion` by displaying static frames.
 
-**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips`).
+**Build stamp convention.** Every release updates the build stamp under the title in `index.html` to the new date + feature tags before committing, so the loaded build is always identifiable at a glance without scrolling (e.g. `Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar + floor960 + gradbg + budget + presets + quickclips + switch`).
 
 ## Notes / limitations
 - Android performance and memory vary. Keep the tab open and screen awake while encoding.
