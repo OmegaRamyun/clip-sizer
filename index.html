@@ -104,7 +104,7 @@ button:focus-visible,.download:focus-visible{outline:2px solid var(--accent);out
 button.secondary{background:#202430;color:var(--text);border:1px solid var(--line-strong)}
 button.secondary:hover:not(:disabled){background:#282e3e;border-color:#48526c;color:var(--text-bright)}
 button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
-#setupAgain[hidden],#updatePrompt[hidden],#modeIndicator[hidden],#status[hidden]{display:none !important}
+#setupAgain[hidden],#updatePrompt[hidden],#modeIndicator[hidden],#status[hidden],#go[hidden],#links[hidden]{display:none !important}
 #updatePrompt{border-color:rgba(245,158,11,0.5);background:#181b24;box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 12px rgba(245,158,11,0.12)}
 .update-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .update-msg{font-weight:700;font-size:1rem;color:var(--text-bright)}
@@ -113,7 +113,7 @@ button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
 .stat{background:#101217;border:1px solid var(--line);border-radius:10px;padding:12px}
 .stat small{display:block;color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px}
 .stat strong{font-size:1.05rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--text-bright);overflow-wrap:anywhere}
-.progress{height:8px;background:#202430;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:12px 0}
+.progress,.setup-progress{height:8px;background:#202430;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:12px 0}
 .bar{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width 200ms var(--ease-snappy)}
 #status{
   white-space:pre-wrap;
@@ -240,8 +240,34 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 .link-btn:hover{color:var(--accent-hover)}
 .link-btn:active{color:var(--accent-active)}
 .link-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-#go{min-width:120px;font-size:1.05rem}
-#links .download{margin:6px 0}
+#go{
+  min-width:120px;
+  min-height:48px;
+  font-size:1.05rem;
+  width:100%;
+  box-sizing:border-box;
+}
+#links{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  width:100%;
+  box-sizing:border-box;
+}
+#links .download{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  min-height:48px;
+  padding:12px 18px;
+  margin:0;
+  text-decoration:none;
+  font-weight:700;
+  font-size:1rem;
+  box-sizing:border-box;
+  width:100%;
+}
 
 /* Trace-Tan mascot companion & Signal SFX UI */
 :root {
@@ -249,7 +275,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 }
 .mascot-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   margin: 10px 0 14px;
   padding: 10px 12px;
@@ -259,6 +285,13 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   position: relative;
   min-height: 84px;
+  box-sizing: border-box;
+}
+.mascot-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
   box-sizing: border-box;
 }
 .mascot-btn {
@@ -338,7 +371,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 .mascot-bubble {
   flex: 1;
   min-width: 0;
-  height: 64px;
+  height: 72px;
   box-sizing: border-box;
   background: var(--panel-inset);
   border: 1px solid var(--line-strong);
@@ -397,6 +430,30 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   text-overflow: ellipsis;
   word-break: break-word;
 }
+.mascot-progress {
+  height: 6px;
+  background: #202430;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+.mascot-progress .bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 200ms var(--ease-snappy);
+}
+.mascot-card[data-state="encoding"] .mascot-progress,
+.mascot-card[data-state="done"] .mascot-progress {
+  opacity: 1;
+}
 
 .mascot-mute-btn {
   background: var(--panel-inset);
@@ -443,7 +500,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 1, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · MT + blur + update-check + states + version + speed + perf + formats + hardware + zip + polish + mascot + statusbar</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -460,7 +517,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <div class="actions">
       <button type="button" id="setupGo">Download FFMPEG</button>
     </div>
-    <div class="progress"><div class="bar" id="setupBar"></div></div>
+    <div class="setup-progress"><div class="bar" id="setupBar"></div></div>
     <p class="note" id="setupStatus"></p>
   </section>
   <div id="app">
@@ -560,31 +617,32 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   </section>
   <section class="panel">
     <div class="actions">
-      <button id="go" disabled>Go</button>
       <button id="install" class="secondary" hidden>Install app</button>
       <button type="button" id="setupAgain" class="secondary" hidden>Download FFMPEG</button>
     </div>
-    <div class="progress"><div class="bar" id="bar"></div></div>
     <div id="status">Select a video to begin.</div>
     <p class="note warn">Encoding can take several minutes and may use substantial memory. Files are made one at a time. Discord and 4chan are encoded in two passes for accurate sizes (about twice as long as one pass); the Generic outputs are single-pass. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
-  </section>
-  <section class="panel" id="results" hidden>
-    <h2>Finished files</h2>
-    <div id="links"></div>
   </section>
   <p class="note">Targets are deliberately set below the stated limits to leave room for container overhead. Actual file size can vary slightly by encoder/container; check the final size before uploading.</p>
   </div>
   <div class="mascot-card" id="mascotCard">
-    <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
-      <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
-    </button>
-    <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
-      <div class="mascot-speaker">TRACE-TAN</div>
-      <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
+    <div class="mascot-bar">
+      <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
+        <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
+      </button>
+      <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
+        <div class="mascot-speaker">TRACE-TAN</div>
+        <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
+        <div class="mascot-progress" id="mascotProgress" aria-hidden="true">
+          <div class="bar" id="bar"></div>
+        </div>
+      </div>
+      <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
+        <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
+      </button>
     </div>
-    <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
-      <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
-    </button>
+    <div id="links" hidden></div>
+    <button id="go" hidden disabled>Go</button>
   </div>
 </main>
 <script type="module">
@@ -696,16 +754,26 @@ function setMascotState(state, forceSound = false) {
     blushTimer = null;
   }
   currentMascotState = state;
+  const card = $('mascotCard');
+  if (card) card.setAttribute('data-state', state);
   const emote = EMOTE_MAP[state] || 'neutral';
   const msg = FLAVOR_LINES[state] || FLAVOR_LINES.idle;
   const avatar = $('mascotAvatar');
   const msgEl = $('mascotMsg');
+  const progEl = $('mascotProgress');
   if (avatar) {
     avatar.setAttribute('data-emote', emote);
     avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
   }
   if (msgEl) {
     msgEl.textContent = msg;
+  }
+  if (progEl) {
+    if (state === 'encoding' || state === 'done') {
+      progEl.style.opacity = '1';
+    } else if (state === 'idle' || state === 'file-chosen') {
+      progEl.style.opacity = '0';
+    }
   }
   if (state === 'error' || state === 'stale') {
     playMascotSound('dizzy');
@@ -917,7 +985,9 @@ function updateGo(){
   go.textContent=n?`Go — make ${n} file${n===1?'':'s'}`:'Go';
   $('outMsg').textContent='Nothing to make: check at least one output above.';$('outMsg').hidden=n>0;
   const fileOk=selected&&fileState!=='none'&&fileState!=='stale';
-  go.disabled=busy||!fileOk||!duration||!trim.ok||!n;
+  const ready=!busy&&Boolean(fileOk&&duration&&trim.ok&&n);
+  go.disabled=!ready;
+  go.hidden=!ready;
 }
 
 // ---- Trim ----
@@ -1049,8 +1119,8 @@ fileInput.addEventListener('change',()=>{
   unlockAudio();
   selected=fileInput.files?.[0]||null;
   fileState=selected?'picked':'none';
-  $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('results').hidden=true;$('links').innerHTML='';
-  go.disabled=true;duration=0;$('quickNote').hidden=true;
+  $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('links').hidden=true;$('links').innerHTML='';bar.style.width='0%';const pEl=$('mascotProgress');if(pEl)pEl.style.opacity='0';
+  duration=0;$('quickNote').hidden=true;updateGo();
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
   if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';updateGo();setMascotState('idle');return}
   previewURL=URL.createObjectURL(selected);
@@ -1083,6 +1153,8 @@ function setPhase(label,from,span){
   const progText=label?`${label} ${pct}%`:`Encoding… ${pct}%`;
   status.textContent=progText;
   bar.style.width=(from*100)+'%';
+  const progEl=$('mascotProgress');
+  if(progEl)progEl.style.opacity='1';
   if(busy){
     const msgEl=$('mascotMsg');
     if(msgEl)msgEl.textContent=progText;
@@ -1094,6 +1166,8 @@ function phaseProgress(frac){
   bar.style.width=(currentFrac*100)+'%';
   const progText=phase.label?`${phase.label} ${pct}%`:`Encoding… ${pct}%`;
   status.textContent=progText;
+  const progEl=$('mascotProgress');
+  if(progEl)progEl.style.opacity='1';
   if(busy){
     const msgEl=$('mascotMsg');
     if(msgEl)msgEl.textContent=progText;
@@ -1177,6 +1251,7 @@ function saveBlob(blob,name){
   a.href=url;a.download=name;a.className='download';a.textContent=`Download ${name} (${fmtBytes(blob.size)})`;
   a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('links').appendChild(a);
+  $('links').hidden=false;
 }
 let jszipModule=null, jszipLoading=null;
 async function loadJSZip(){
@@ -1547,7 +1622,7 @@ async function runBatch(allowRetry){
   }
   fileState='verified';
 
-  busy=true;go.disabled=true;$('results').hidden=true;$('links').innerHTML='';bar.style.width='0%';
+  busy=true;updateGo();$('links').hidden=true;$('links').innerHTML='';bar.style.width='0%';const progEl=$('mascotProgress');if(progEl)progEl.style.opacity='1';
   status.hidden=true;
   setMascotState('encoding');
   const s=estimate(), mode=aspectMode(), preset=x264Preset();
@@ -1700,7 +1775,7 @@ async function runBatch(allowRetry){
       from+=span;
     }
     phase={label:'',from:0,span:0};
-    $('results').hidden=!made;bar.style.width='100%';
+    $('links').hidden=!made;bar.style.width='100%';const progEl=$('mascotProgress');if(progEl)progEl.style.opacity='1';
     const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
     status.hidden=false;
     setMascotState(!failed ? 'done' : 'error');
