@@ -20,23 +20,23 @@
   --muted-dim:#64748b;
 
   /* Eva/NERV Signal Protocol Terminal Palette */
-  --accent:#f59e0b;
-  --accent-hover:#fbbf24;
-  --accent-active:#d97706;
-  --accent-glow:rgba(245,158,11,0.2);
+  --accent:#f472b6;
+  --accent-hover:#f9a8d4;
+  --accent-active:#db2777;
+  --accent-glow:rgba(244,114,182,0.2);
   --accent-dark:#0c0d11;
 
-  --teal:#14b8a6;
-  --teal-bright:#2dd4bf;
-  --teal-dim:rgba(20,184,166,0.12);
-  --teal-line:rgba(20,184,166,0.32);
+  --pink:#db2777;
+  --pink-bright:#f472b6;
+  --pink-dim:rgba(219,39,119,0.12);
+  --pink-line:rgba(219,39,119,0.32);
 
   --err:#f87171;
   --err-bright:#ef4444;
   --err-dim:rgba(239,68,68,0.12);
   --err-line:rgba(239,68,68,0.35);
 
-  --warn:#fbbf24;
+  --warn:#f9a8d4;
 
   --ease-snappy:cubic-bezier(0.175,0.885,0.32,1.275);
   --ease-out:cubic-bezier(0.2,0,0,1);
@@ -105,7 +105,7 @@ button.secondary{background:#202430;color:var(--text);border:1px solid var(--lin
 button.secondary:hover:not(:disabled){background:#282e3e;border-color:#48526c;color:var(--text-bright)}
 button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
 #setupAgain[hidden],#updatePrompt[hidden],#modeIndicator[hidden],#status[hidden],#go[hidden],#links[hidden]{display:none !important}
-#updatePrompt{border-color:rgba(245,158,11,0.5);background:#181b24;box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 12px rgba(245,158,11,0.12)}
+#updatePrompt{border-color:rgba(244,114,182,0.5);background:#181b24;box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 12px rgba(244,114,182,0.12)}
 .update-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .update-msg{font-weight:700;font-size:1rem;color:var(--text-bright)}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -216,9 +216,9 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 #modeIndicator{
   font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
   font-size:0.82rem;
-  color:var(--teal-bright);
-  background:var(--teal-dim);
-  border:1px solid var(--teal-line);
+  color:var(--pink-bright);
+  background:var(--pink-dim);
+  border:1px solid var(--pink-line);
   border-radius:6px;
   padding:4px 10px;
   margin:0 0 14px;
@@ -274,7 +274,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   width:100%;
 }
 
-/* Trace-Tan mascot companion & Signal SFX UI */
+/* Paracelsus companion & Signal SFX UI */
 :root {
   --mascot-size: 72px;
 }
@@ -332,9 +332,10 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   display: block;
   width: var(--mascot-size);
   height: var(--mascot-size);
-  background-image: url('assets/trace-tan-mascot.png');
-  background-size: calc(var(--mascot-size) * 4) calc(var(--mascot-size) * 2);
+  background-image: url('assets/paracelsus-mascot.png');
+  background-size: var(--mascot-size) var(--mascot-size);
   background-repeat: no-repeat;
+  border-radius: 50%;
   pointer-events: none;
   animation: mascot-bob 2.6s ease-in-out infinite;
   transform-origin: center bottom;
@@ -359,15 +360,11 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   60% { transform: translateY(-3px); }
 }
 
-/* Sprite coordinates: 4 columns x 2 rows of 160x160 cells */
-.mascot-avatar[data-emote="neutral"]    { background-position: 0 0; }
-.mascot-avatar[data-emote="smug"]       { background-position: calc(-1 * var(--mascot-size)) 0; }
-.mascot-avatar[data-emote="happy"]      { background-position: calc(-2 * var(--mascot-size)) 0; animation: mascot-bounce 0.8s ease-in-out infinite; }
-.mascot-avatar[data-emote="shocked"]    { background-position: calc(-3 * var(--mascot-size)) 0; }
-.mascot-avatar[data-emote="blush"]      { background-position: 0 calc(-1 * var(--mascot-size)); animation: mascot-blush-anim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
-.mascot-avatar[data-emote="dizzy"]      { background-position: calc(-1 * var(--mascot-size)) calc(-1 * var(--mascot-size)); animation: mascot-dizzy-anim 0.6s ease-in-out infinite; }
-.mascot-avatar[data-emote="nervous"]    { background-position: calc(-2 * var(--mascot-size)) calc(-1 * var(--mascot-size)); }
-.mascot-avatar[data-emote="determined"] { background-position: calc(-3 * var(--mascot-size)) calc(-1 * var(--mascot-size)); }
+/* Single portrait: every emote shows the same face; motion comes from the animations */
+.mascot-avatar[data-emote] { background-position: 0 0; }
+.mascot-avatar[data-emote="happy"] { animation: mascot-bounce 0.8s ease-in-out infinite; }
+.mascot-avatar[data-emote="blush"] { animation: mascot-blush-anim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.mascot-avatar[data-emote="dizzy"] { animation: mascot-dizzy-anim 0.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .mascot-avatar,
@@ -508,13 +505,13 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
 <body>
 <main>
   <h1>Compression Protocol</h1>
-  <p>Make upload-friendly copies for Discord and 4chan, plus generic Horizontal, Vertical and Square files that post almost everywhere. Video is processed locally in your browser.</p>
+  <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v32</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v33</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
-      <span class="update-msg">Update available</span>
+      <span class="update-msg">A new rite is ready</span>
       <div class="actions">
         <button type="button" id="updateReload">Reload</button>
         <button type="button" class="secondary" id="updateDismiss">Dismiss</button>
@@ -522,17 +519,17 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     </div>
   </div>
   <section class="panel" id="setup" hidden>
-    <h2>First setup</h2>
-    <p>Compression Protocol downloads FFMPEG WASM (about 30–40 MB) once, then restarts.</p>
+    <h2>The First Rite</h2>
+    <p>We download the FFMPEG engine once (about 30–40 MB), then the page restarts.</p>
     <div class="actions">
-      <button type="button" id="setupGo">Download FFMPEG</button>
+      <button type="button" id="setupGo">Fetch the Engine</button>
     </div>
     <div class="setup-progress"><div class="bar" id="setupBar"></div></div>
     <p class="note" id="setupStatus"></p>
   </section>
   <div id="app">
   <section class="panel">
-    <label for="video">Choose a video</label>
+    <label for="video">Offer a video</label>
     <input id="video" type="file" accept="video/*">
     <div id="details" hidden>
       <div class="statgrid" style="margin-top:14px">
@@ -546,7 +543,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     </div>
   </section>
   <section class="panel" id="editor" hidden>
-    <h2>Trim &amp; crop</h2>
+    <h2>Cut &amp; Frame</h2>
     <div class="stage" id="stage">
       <video id="preview" controls playsinline muted preload="metadata"></video>
       <div class="overlay" id="overlay">
@@ -562,7 +559,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <div class="row">
       <button type="button" class="secondary" id="setStart">Start = playhead</button>
       <button type="button" class="secondary" id="setEnd">End = playhead</button>
-      <button type="button" class="secondary" id="resetTrim">Whole video</button>
+      <button type="button" class="secondary" id="resetTrim">The whole clip</button>
     </div>
     <div class="row" id="quickLengths">
       <button type="button" class="secondary" data-len="5">5s</button>
@@ -576,7 +573,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <button type="button" class="secondary" data-len="120">2m</button>
     </div>
     <p class="note" id="quickNote" hidden></p>
-    <p class="note">Quick lengths set the end to start + length. 2m is the fits-everywhere length: a Generic file of 2:00 or less posts to X, Shorts, Reels and TikTok.</p>
+    <p class="note">Quick lengths set the end to start + length. The two-minute form posts everywhere: a Socials file of 2:00 or less goes to X, Shorts, Reels, and TikTok.</p>
     <p class="err" id="trimError" hidden></p>
     <label>Crop box (source pixels)</label>
     <div class="fields4">
@@ -589,53 +586,53 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <button type="button" class="secondary" id="cropEdit" aria-pressed="false">Draw / adjust crop</button>
       <button type="button" class="secondary" id="cropReset">Reset crop</button>
     </div>
-    <p class="note">While “Draw / adjust crop” is on, drag on the video to draw a box, drag inside it to move it, or drag an edge/corner to resize. Turn it off to use the video controls again.</p>
+    <p class="note">While the drawing rite is on, drag upon the video to draw a box, drag within it to move it, or drag an edge or corner to resize. Turn it off to return to the video controls.</p>
   </section>
   <section class="panel" id="tradeoff" hidden>
-    <h2>Quality / resolution</h2>
-    <input id="mode" type="range" min="0" max="2" step="1" value="1" aria-label="Quality / resolution tradeoff" list="modeStops">
+    <h2>The Measure</h2>
+    <input id="mode" type="range" min="0" max="2" step="1" value="1" aria-label="The Measure" list="modeStops">
     <datalist id="modeStops"><option value="0"></option><option value="1"></option><option value="2"></option></datalist>
     <div class="stops" id="modeButtons"></div>
-    <p class="note">Only changes the frame size each bitrate gets. Size targets and bitrates stay the same. Affects Discord and 4chan only: the Generic outputs use fixed frames and bitrates, so their estimates do not move with this slider.</p>
+    <p class="note">We weigh frame against bitrate here, and nothing else. Size targets and bitrates hold fast. This measure touches Discord and 4chan only: the Socials forms keep fixed frames and bitrates, so their estimates do not stir with this slider.</p>
     <p class="note" id="estimates"></p>
   </section>
   <section class="panel" id="outputs">
-    <h2>Outputs</h2>
+    <h2>The Offerings</h2>
     <div class="aspect" role="radiogroup" aria-label="Export mode" id="outChecks">
-      <label class="check"><input type="radio" name="exportMode" value="base" checked><span class="check-body"><span class="check-name name"><b>Discord + 4chan</b></span><small class="check-sub sub">Default · Best under a minute</small></span></label>
-      <label class="check"><input type="radio" name="exportMode" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">3 clips · Limits at 2:20 for X</small></span></label>
+      <label class="check"><input type="radio" name="exportMode" value="base" checked><span class="check-body"><span class="check-name name"><b>Discord + 4chan</b></span><small class="check-sub sub">The default rite · Best under a minute</small></span></label>
+      <label class="check"><input type="radio" name="exportMode" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">Three forms · X permits 2:20</small></span></label>
     </div>
-    <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — used in file names, e.g. Shadow Protocol"></div>
-    <label id="aspectLabel" hidden>If your clip doesn't match the output shape</label>
-    <div class="aspect" role="radiogroup" aria-label="Aspect mode for Generic outputs" id="aspectGroup" hidden>
+    <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — written into file names, e.g. Shadow Protocol"></div>
+    <label id="aspectLabel" hidden>If thy clip matches not the output shape</label>
+    <div class="aspect" role="radiogroup" aria-label="Aspect mode for Socials outputs" id="aspectGroup" hidden>
       <label class="check"><input type="radio" name="aspect" value="fit" checked><span>Fit — black bars</span></label>
       <label class="check"><input type="radio" name="aspect" value="fill"><span>Fill — crop to frame</span></label>
       <label class="check"><input type="radio" name="aspect" value="blur"><span>Gradient — sampled-color background</span></label>
     </div>
-    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts off the edges. Gradient keeps the whole picture and fills the bars with a dark gradient sampled from the clip's own colors, plus a subtle 2px outline just outside the video. Discord and 4chan always keep your clip's own shape.</p>
+    <p class="note" id="aspectNote" hidden>Fit keeps the whole picture and adds black bars. Fill covers the frame and cuts the edges. Gradient keeps the whole picture and fills the bars with a dark gradient drawn from the clip's own colors, with a subtle 2px outline just outside the video. Discord and 4chan always keep thy clip's own shape.</p>
     <div id="socialPreviews" hidden>
       <div class="social-prev-row">
         <div class="social-prev"><canvas id="prevHorizontal"></canvas><div class="social-prev-label">Horizontal · 1920×1080</div></div>
         <div class="social-prev"><canvas id="prevVertical"></canvas><div class="social-prev-label">Vertical · 1080×1920</div></div>
         <div class="social-prev"><canvas id="prevSquare"></canvas><div class="social-prev-label">Square · 1080×1080</div></div>
       </div>
-      <p class="note">Preview of one frame from the middle of your trim, with the aspect mode above applied. The encode still renders the full clip.</p>
+      <p class="note">One frame from the middle of thy trim, wearing the aspect mode above. The encode still renders the full clip.</p>
     </div>
-    <label>Speed</label>
+    <label>The Pace</label>
     <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
       <label class="check"><input type="radio" name="preset" value="normal" checked><span>Normal</span></label>
       <label class="check"><input type="radio" name="preset" value="fast"><span>Fast</span></label>
       <label class="check"><input type="radio" name="preset" value="faster"><span>Faster</span></label>
       <label class="check"><input type="radio" name="preset" value="veryfast"><span>Veryfast</span></label>
     </div>
-    <p class="note">Faster finishes sooner but looks a little worse at the same file size. File sizes do not change. Applies to the MP4 files (Discord and Generic); the 4chan WebM is not affected.</p>
-    <p class="note warn" id="presetWarn" hidden>Veryfast is the rough-draft setting: faster, but visibly worse at these file sizes. Normal is the quality pick.</p>
-<label>Debug</label>
+    <p class="note">A faster pace finishes sooner but looks a little worse at the same file size. File sizes do not change. This touches the MP4 files (Discord and Socials); the 4chan WebM is not affected.</p>
+    <p class="note warn" id="presetWarn" hidden>Veryfast is the rough-draft pace: faster, but visibly worse at these file sizes. Normal is the quality pick.</p>
+<label>The Undercroft</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
       <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
       <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
-      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Force all selected outputs to 3.89 MB mute VP9 WebM</small></span></label>
+      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Bind all chosen outputs to 3.89 MB mute VP9 WebM</small></span></label>
     </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
@@ -643,26 +640,26 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   </section>
   <section class="panel">
     <div class="actions">
-      <button type="button" id="setupAgain" class="secondary" hidden>Download FFMPEG</button>
+      <button type="button" id="setupAgain" class="secondary" hidden>Fetch the Engine</button>
     </div>
-    <div id="status">Select a video to begin.</div>
-    <p class="note warn">Encoding can take several minutes and may use substantial memory. Files are made one at a time. Discord and 4chan are encoded in two passes for accurate sizes (about twice as long as one pass); the Generic outputs are single-pass. Keep this tab open and your phone awake. Very long or high-resolution videos may exceed your device's memory.</p>
+    <div id="status">Offer a video, and we begin.</div>
+    <p class="note warn">An encode can take several minutes and much memory. We render one file at a time. Discord and 4chan pass twice for true sizes (about twice as long as one pass); the Socials forms pass once. Keep this tab open and thy phone awake. Very long or high-resolution videos may exceed thy device's memory.</p>
   </section>
-  <p class="note">Targets are deliberately set below the stated limits to leave room for container overhead. Actual file size can vary slightly by encoder/container; check the final size before uploading.</p>
+  <p class="note">Targets sit deliberately below the stated limits, leaving room for container overhead. True file size varies a little by encoder and container; weigh the final size before uploading.</p>
   </div>
   <div class="mascot-card" id="mascotCard">
     <div class="mascot-bar">
-      <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Trace-Tan mascot (tap to poke)">
-        <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Trace-Tan emote: neutral"></span>
+      <button type="button" class="mascot-btn" id="mascotBtn" aria-label="Paracelsus (tap to poke)">
+        <span class="mascot-avatar" id="mascotAvatar" data-emote="neutral" role="img" aria-label="Paracelsus: neutral"></span>
       </button>
       <div class="mascot-bubble" id="mascotBubble" aria-live="polite">
-        <div class="mascot-speaker">TRACE-TAN</div>
-        <div class="mascot-text" id="mascotMsg">Feed me a clip, Anon~</div>
+        <div class="mascot-speaker">PARACELSUS</div>
+        <div class="mascot-text" id="mascotMsg">Offer us a clip, pilgrim.</div>
         <div class="mascot-progress" id="mascotProgress" aria-hidden="true">
           <div class="bar" id="bar"></div>
         </div>
       </div>
-      <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute mascot sounds" aria-pressed="false" title="Mute sounds">
+      <button type="button" class="mascot-mute-btn" id="mascotMuteBtn" aria-label="Mute Paracelsus sounds" aria-pressed="false" title="Mute sounds">
         <span class="mute-icon" id="mascotMuteIcon" aria-hidden="true">🔊</span>
       </button>
     </div>
@@ -694,7 +691,7 @@ const evenDown=n=>Math.max(0,Math.floor(n/2)*2);
 const gazeY=(tw,th,sh)=>tw<th?Math.max(0,evenDown(0.40*th-sh/2)):evenDown((th-sh)/2);
 const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
 
-// ---- Mascot (Trace-Tan) companion & SFX ----
+// ---- Mascot (Paracelsus) companion & SFX ----
 const MASCOT_SOUNDS = {
   blush: 'assets/sfx/emote-blush.wav',
   dizzy: 'assets/sfx/emote-spiral-dizzy.wav',
@@ -702,16 +699,16 @@ const MASCOT_SOUNDS = {
   select: 'assets/sfx/select-v3.wav'
 };
 const FLAVOR_LINES = {
-  idle: 'Feed me a clip, Anon~',
-  setup: 'Grabbing the engine once. Hang tight~',
-  'file-chosen': "Nice clip. Let's see how much we can squeeze it.",
-  encoding: "Crunching frames... don't close the tab, Anon~",
-  done: 'Done! Clean and under the cap~',
-  error: 'Woah... bit budget blew up. Check the logs.',
-  stale: 'File handle vanished! Pick the clip again, Anon~',
-  warning: "Over two minutes? That won't fit everywhere, Anon~",
-  update: "Fresh bits on deck. Reload when you're ready~",
-  blush: "Hey! Don't poke the compressor~"
+  idle: 'Offer us a clip, pilgrim.',
+  setup: 'We fetch the engine once. Hold fast.',
+  'file-chosen': "A fine offering. Let us see how small we can bind it.",
+  encoding: "We crunch the frames. Close not this tab, pilgrim.",
+  done: 'It is done. Clean, and under the cap.',
+  error: 'The bit budget hath burst. Read the logs.',
+  stale: 'The handle hath slipped from our hands. Offer the clip again.',
+  warning: "Past two minutes? It shall not fit everywhere.",
+  update: "Fresh bits await. Reload when thou art ready.",
+  blush: "Ah! Poke not the vessel."
 };
 const EMOTE_MAP = {
   idle: 'neutral',
@@ -761,7 +758,7 @@ function updateMuteUI() {
   const icon = $('mascotMuteIcon');
   if (!btn || !icon) return;
   btn.setAttribute('aria-pressed', String(audioMuted));
-  btn.setAttribute('aria-label', audioMuted ? 'Unmute mascot sounds' : 'Mute mascot sounds');
+  btn.setAttribute('aria-label', audioMuted ? 'Unmute Paracelsus sounds' : 'Mute Paracelsus sounds');
   btn.setAttribute('title', audioMuted ? 'Unmute sounds' : 'Mute sounds');
   icon.textContent = audioMuted ? '🔇' : '🔊';
 }
@@ -792,7 +789,7 @@ function setMascotState(state, forceSound = false) {
   const progEl = $('mascotProgress');
   if (avatar) {
     avatar.setAttribute('data-emote', emote);
-    avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
+    avatar.setAttribute('aria-label', `Paracelsus: ${emote}`);
   }
   if (msgEl) {
     msgEl.textContent = msg;
@@ -820,7 +817,7 @@ function pokeMascot() {
   const msgEl = $('mascotMsg');
   if (avatar) {
     avatar.setAttribute('data-emote', 'blush');
-    avatar.setAttribute('aria-label', 'Trace-Tan emote: blush');
+    avatar.setAttribute('aria-label', 'Paracelsus: blush');
   }
   if (msgEl) {
     msgEl.textContent = FLAVOR_LINES.blush;
@@ -832,7 +829,7 @@ function pokeMascot() {
     const msg = (busy && phase.label) ? `${phase.label} ${Math.round(parseFloat(bar.style.width)||0)}%` : (FLAVOR_LINES[currentMascotState] || FLAVOR_LINES.idle);
     if (avatar) {
       avatar.setAttribute('data-emote', emote);
-      avatar.setAttribute('aria-label', `Trace-Tan emote: ${emote}`);
+      avatar.setAttribute('aria-label', `Paracelsus: ${emote}`);
     }
     if (msgEl) {
       msgEl.textContent = msg;
@@ -886,15 +883,15 @@ function estimate() {
   renderOutputs(r);
   const parts=[];
   if($('allChan')?.checked){
-    parts.push(`All 4chan override: all selected outputs VP9 mute WebM at ~${chanVideo} kb/s under 4.0 MB target.`);
+    parts.push(`All 4chan: all chosen outputs render as VP9 mute WebM at ~${chanVideo} kb/s under 4.0 MB.`);
   }else if(exportMode()==='socials'){
-    parts.push(`Socials 3-pack (Horizontal, Vertical, Square).`);
+    parts.push(`The Socials triad (Horizontal, Vertical, Square).`);
   }else{
     parts.push(`Discord ${dw}×${dh} at ~${discordVideo} kb/s video + 128 kb/s audio.`);
     parts.push(`4chan ${cw}×${ch} at ~${chanVideo} kb/s VP9, no audio.`);
   }
   parts.push(`Segment ${fmtTrim(trim.start)}–${fmtTrim(trim.end)} (${segDuration().toFixed(1)} s)`+(c?`, cropped to ${c.w}×${c.h}.`:', full frame.'));
-  $('estimates').textContent=`Mode: ${mode.label} — `+parts.join(' ');
+  $('estimates').textContent=`Measure: ${mode.label} — `+parts.join(' ');
   return r;
 }
 
@@ -1113,7 +1110,7 @@ function renderOutputs(r){
     if(isAllChan){
       const [bw,bh]=[o.w||(o.id==='discord'?r.dw:r.cw),o.h||(o.id==='discord'?r.dh:r.ch)];
       const [cw2,ch2]=chanClamp(bw,bh);
-      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (All 4chan override) — 4.0 MB target`;
+      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (the 4chan writ) — 4.0 MB target`;
     }else if(o.id==='discord'){
       txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 128 kb/s audio, two-pass — ${L.text}`;
     }else if(o.id==='chan'){
@@ -1128,7 +1125,7 @@ function renderOutputs(r){
   }
   ul.hidden=!outs.length;
   const w=$('lengthWarn');
-  w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip is ${fmtTime(d)}, over the ${fmtTime(SOCIALS_MAX_LEN)} X limit (${GENERIC_LIMITS_NOTE}). Use the quick-length buttons under Trim to shorten it. Go will still make the files as trimmed; nothing is cut for you.`:'';
+  w.textContent=(!isAllChan&&over.length)?`${over.map(o=>o.name).join(', ')}: this clip runs ${fmtTime(d)}, past the ${fmtTime(SOCIALS_MAX_LEN)} X limit (${GENERIC_LIMITS_NOTE}). Use the quick lengths under Cut & Frame to shorten it. Transmute still renders the files as trimmed; nothing is cut for thee.`:'';
   w.hidden=!(!isAllChan&&over.length);
   if(!busy&&selected&&fileState==='picked'){
     if(!w.hidden){
@@ -1142,8 +1139,8 @@ function renderOutputs(r){
 let busy=false,pendingRetry=false;
 function updateGo(){
   const n=checkedOutputs().length;
-  go.textContent=n?`Go — make ${n} file${n===1?'':'s'}`:'Go';
-  $('outMsg').textContent='Nothing to make: check at least one output above.';$('outMsg').hidden=n>0;
+  go.textContent=n?`Transmute — ${n} file${n===1?'':'s'}`:'Transmute';
+  $('outMsg').textContent='Nothing to render: choose at least one offering above.';$('outMsg').hidden=n>0;
   const fileOk=selected&&fileState!=='none'&&fileState!=='stale';
   const ready=!busy&&Boolean(fileOk&&duration&&trim.ok&&n);
   go.disabled=!ready;
@@ -1163,11 +1160,11 @@ function applyTrim(fromFields=true){
   const err=$('trimError');let msg='';
   let start=fromFields?parseTime($('trimStart').value):trim.start;
   let end=fromFields?parseTime($('trimEnd').value):trim.end;
-  if(Number.isNaN(start)||Number.isNaN(end)){msg='Times must look like m:ss (for example 1:05.5) or plain seconds.';trim.ok=false}
+  if(Number.isNaN(start)||Number.isNaN(end)){msg='Times must read as m:ss (for example 1:05.5) or plain seconds.';trim.ok=false}
   else{
-    if(start<0){start=0;msg='Start was before 0:00; clamped to 0:00.0. '}
-    if(end>duration){end=duration;msg+=`End was past the end of the video; clamped to ${fmtTrim(duration)}. `}
-    if(start>=end){msg+='Start must be before end.';trim.ok=false}else trim.ok=true;
+    if(start<0){start=0;msg='The start lay before 0:00; bound to 0:00.0. '}
+    if(end>duration){end=duration;msg+=`The end lay past the video's end; bound to ${fmtTrim(duration)}. `}
+    if(start>=end){msg+='The start must precede the end.';trim.ok=false}else trim.ok=true;
     trim.start=start;trim.end=end;
     $('trimStart').value=fmtTrim(start);$('trimEnd').value=fmtTrim(end);
   }
@@ -1182,7 +1179,7 @@ const STARVE_WARN_S=45;
 function applyTrimWarned(){
   const prevStart=trim.start, prevEnd=trim.end, prevDur=segDuration();
   applyTrim();
-  if(trim.ok&&prevDur<=STARVE_WARN_S&&segDuration()>STARVE_WARN_S&&!confirm('4chan clips get starved at this rate. Are you sure?')){
+  if(trim.ok&&prevDur<=STARVE_WARN_S&&segDuration()>STARVE_WARN_S&&!confirm('At this length, the 4chan offering starves. Proceed?')){
     trim.start=prevStart;trim.end=prevEnd;applyTrim(false);
   }
 }
@@ -1193,12 +1190,12 @@ $('setEnd').addEventListener('click',()=>{$('trimEnd').value=fmtTrim(preview.cur
 $('resetTrim').addEventListener('click',()=>{trim.start=0;trim.end=duration;applyTrim(false)});
 for(const b of $('quickLengths').children)b.addEventListener('click',()=>{
   const len=Number(b.dataset.len), q=$('quickNote');
-  if(len>=60&&!confirm('4chan clips get starved at this rate. Are you sure?'))return;
+  if(len>=60&&!confirm('At this length, the 4chan offering starves. Proceed?'))return;
   let start=parseTime($('trimStart').value);if(Number.isNaN(start))start=trim.start;
   start=clamp(start,0,duration);
   trim.start=start;trim.end=Math.min(start+len,duration);applyTrim(false);
   const got=trim.end-trim.start;
-  q.textContent=got<len-0.05?`Trimmed duration ${fmtTime(got)} (clip is shorter than ${fmtTime(len)} from this start).`:'';
+  q.textContent=got<len-0.05?`Trimmed duration ${fmtTime(got)} (the clip runs shorter than ${fmtTime(len)} from this start).`:'';
   q.hidden=!q.textContent;
 });
 for(const id of ['trimStart','trimEnd','setStart','setEnd','resetTrim'])$(id).addEventListener(id.startsWith('trim')?'change':'click',()=>{$('quickNote').hidden=true});
@@ -1298,11 +1295,11 @@ fileInput.addEventListener('change',()=>{
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('links').hidden=true;$('links').innerHTML='';bar.style.width='0%';const pEl=$('mascotProgress');if(pEl)pEl.style.opacity='0';
   duration=0;$('quickNote').hidden=true;updateGo();
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
-  if(!selected){preview.removeAttribute('src');status.textContent='Select a video to begin.';updateGo();setMascotState('idle');return}
+  if(!selected){preview.removeAttribute('src');status.textContent='Offer a video, and we begin.';updateGo();setMascotState('idle');return}
   previewURL=URL.createObjectURL(selected);
   preview.onloadedmetadata=()=>{
     duration=preview.duration;width=preview.videoWidth;height=preview.videoHeight;
-    if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();setMascotState('error');return}
+    if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error');return}
     $('duration').textContent=fmtTime(duration);
     $('resolution').textContent=`${width} × ${height}`;
     stage.style.aspectRatio=`${width} / ${height}`;
@@ -1313,12 +1310,12 @@ fileInput.addEventListener('change',()=>{
     crop={x:0,y:0,w:width,h:height};
     applyTrim(false);renderCrop();
     fileState='picked';
-    status.textContent='Ready. Adjust trim, crop, and the quality slider if you like, then press Go.';
+    status.textContent='Ready. Shape the trim, the crop, and the measure as thou wilt, then press Transmute.';
     updateGo();
     setMascotState('file-chosen', true);
     requestSocialPreviews();
   };
-  preview.onerror=()=>{fileState='none';status.textContent='Could not read this video. Try another file.';updateGo();setMascotState('error')};
+  preview.onerror=()=>{fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error')};
   preview.src=previewURL;
 });
 
@@ -1425,7 +1422,7 @@ async function run(engine,args){
 async function removeFiles(engine,files){for(const f of files){try{await engine.deleteFile(f)}catch{}}}
 function saveBlob(blob,name){
   const url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url;a.download=name;a.className='download';a.textContent=`Download ${name} (${fmtBytes(blob.size)})`;
+  a.href=url;a.download=name;a.className='download';a.textContent=`Take ${name} (${fmtBytes(blob.size)})`;
   a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('links').appendChild(a);
   $('links').hidden=false;
@@ -1758,18 +1755,18 @@ async function runBatch(allowRetry){
   if(busy)return;
   if(!selected||fileState==='none'){
     setMascotState('idle');
-    status.textContent='Select a video to begin.';
+    status.textContent='Offer a video, and we begin.';
     updateGo();
     return;
   }
   if(fileState==='stale'){
     setMascotState('stale');
-    status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+    status.textContent='The preview held, but the file cannot be read anew for the encode. Offer the video again.';
     updateGo();
     return;
   }
   if(!outs.length){
-    status.textContent='Nothing to make: check at least one output above.';
+    status.textContent='Nothing to render: choose at least one offering above.';
     updateGo();
     return;
   }
@@ -1799,7 +1796,7 @@ async function runBatch(allowRetry){
   if(!probeOk){
     fileState='stale';
     setMascotState('stale');
-    status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+    status.textContent='The preview held, but the file cannot be read anew for the encode. Offer the video again.';
     updateGo();
     return;
   }
@@ -1846,15 +1843,15 @@ async function runBatch(allowRetry){
       if(allowRetry&&engineState==='failed'){
         ffmpeg=null;
         pendingRetry=true;
-        status.textContent='Encoder wasn\'t ready — downloading it now and retrying…';
+        status.textContent='The engine was not ready — we fetch it now and try anew…';
       }else{
-        status.textContent=err?.message||'Encoder download failed. Check connection and press Go again to retry.';
+        status.textContent=err?.message||'The engine fetch failed. Check thy connection and press Transmute again to retry.';
       }
       throw err;
     }
     if(engineState==='failed'){status.hidden=false;setMascotState('error');throw new Error('Encoder download failed.');}
-    status.textContent='Reading source video…';
-    if(busy){const msgEl=$('mascotMsg');if(msgEl)msgEl.textContent='Reading source video…';}
+    status.textContent='Reading the offering…';
+    if(busy){const msgEl=$('mascotMsg');if(msgEl)msgEl.textContent='Reading the offering…';}
     let fileBuffer;
     try{
       fileBuffer=await fetchFile(selected);
@@ -1862,7 +1859,7 @@ async function runBatch(allowRetry){
       fileState='stale';
       status.hidden=false;
       setMascotState('stale');
-      status.textContent='The preview worked, but the file could not be re-read for encoding. Please choose the video again.';
+      status.textContent='The preview held, but the file cannot be read anew for the encode. Offer the video again.';
       throw new Error('file stale');
     }
     await engine.writeFile(input,fileBuffer);
@@ -1969,10 +1966,10 @@ async function runBatch(allowRetry){
     }
     phase={label:'',from:0,span:0};
     $('links').hidden=!made;bar.style.width='100%';const progEl=$('mascotProgress');if(progEl)progEl.style.opacity='1';
-    const head=!failed?'Done.':made?'Finished with errors.':'Encoding failed.';
+    const head=!failed?'It is done.':made?'Finished with flaws.':'The encode failed.';
     status.hidden=false;
     setMascotState(!failed ? 'done' : 'error');
-    status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nTry a shorter/smaller source video or another browser.':'');
+    status.textContent=`${head} ${lines.join('\n')}`+(failed?'\nOffer a shorter or smaller clip, or another browser.':'');
     if(madeOutputs.length===1){
       saveBlob(madeOutputs[0].blob,madeOutputs[0].name);
     }else if(madeOutputs.length>1){
@@ -1990,7 +1987,7 @@ async function runBatch(allowRetry){
     phase={label:'',from:0,span:0};
     status.hidden=false;
     setMascotState('error');
-    status.textContent='Encoding failed: '+(e?.message||e)+'\nTry a shorter/smaller source video or another browser.';
+    status.textContent='The encode failed: '+(e?.message||e)+'\nOffer a shorter or smaller clip, or another browser.';
   }finally{
     if(engine)await removeFiles(engine,[input,...outs.flatMap(tempsFor)]);
     busy=false;updateGo();
@@ -2047,9 +2044,9 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 
 // ---- First setup (first run per browser/device) ----
-// Download FFMPEG -> restart once -> app. The download warms the browser cache with the same
+// Fetch the Engine -> restart once -> app. The download warms the browser cache with the same
 // files loadFFmpeg fetches on Go. Diagnostics go to the console only. Never reloads more than
-// once per tab, and never reloads on its own: only the Download FFMPEG button reloads.
+// once per tab, and never reloads on its own: only the Fetch the Engine button reloads.
 const SETUP_KEY='clip-sizer-setup-v1', RESTARTED_KEY='clip-sizer-setup-restarted-v1';
 const store={
   get(area,k){try{return window[area].getItem(k)}catch{return null}},
@@ -2082,7 +2079,7 @@ async function runSetup(){
   if(setupBusy||busy)return;
   setupBusy=true;$('setupGo').disabled=true;
   const msg=$('setupStatus'), sbar=$('setupBar');
-  msg.textContent='Downloading FFMPEG WASM…';sbar.style.width='0%';
+  msg.textContent='Fetching the engine…';sbar.style.width='0%';
   let sw=false;
   try{
     if(!('serviceWorker' in navigator)||!location.protocol.startsWith('http'))throw new Error('unsupported');
@@ -2094,16 +2091,16 @@ async function runSetup(){
   const f=coreFiles(sw), lib=FF_WORKER.replace(/worker\.js$/,'');
   const urls=[FF_WORKER,lib+'const.js',lib+'errors.js',f.core,...(f.worker?[f.worker]:[]),f.wasm];
   try{
-    await warmFiles(urls,(got,frac)=>{msg.textContent=`Downloading FFMPEG WASM… ${(got/1e6).toFixed(1)} MB`;sbar.style.width=(frac*100)+'%'});
+    await warmFiles(urls,(got,frac)=>{msg.textContent=`Fetching the engine… ${(got/1e6).toFixed(1)} MB`;sbar.style.width=(frac*100)+'%'});
   }catch(e){
     console.info('[clip-sizer] setup: download failed ('+(e?.message||e)+')');
     setupBusy=false;resetSetupUI();
     setMascotState('error');
-    msg.textContent='Download failed. Check connection and tap Download FFMPEG to retry.';
+    msg.textContent='The fetch failed. Check thy connection and tap Fetch the Engine to retry.';
     return;
   }
   store.set('localStorage',SETUP_KEY,'done');
-  msg.textContent='Download complete. Restarting…';sbar.style.width='100%';
+  msg.textContent='The engine is fetched. Beginning anew…';sbar.style.width='100%';
   console.info(`[clip-sizer] setup: downloaded ${sw?'core-mt':'core'}; restarting once`);
   if(store.get('sessionStorage',RESTARTED_KEY)||!store.set('sessionStorage',RESTARTED_KEY,'1')){
     console.info('[clip-sizer] setup: already restarted in this tab (or no session storage); not reloading again');
@@ -2138,10 +2135,10 @@ function updateModeIndicator(){
     return;
   }
   if(engineMT){
-    el.textContent=`Multithreaded · ${activeThreads()} threads`;
+    el.textContent=`Many hands · ${activeThreads()} threads`;
     el.hidden=false;
   }else{
-    el.innerHTML='Single-threaded fallback · <button type="button" id="tryFastSetup" class="link-btn">Try fast setup</button>';
+    el.innerHTML='Single thread · <button type="button" id="tryFastSetup" class="link-btn">Try fast setup</button>';
     el.hidden=false;
     $('tryFastSetup')?.addEventListener('click',tryFastSetup);
   }
