@@ -686,7 +686,7 @@ async function runBatch(allowRetry){
         setPhase(`${tag} pass 1 of 2…`,from,span*0.4);
         await run(engine,[...seek,'-i',input,...dur,'-an','-vf',dvf,...x264,'-pass','1','-f','null','-']);
         setPhase(`${tag} pass 2 of 2…`,from+span*0.4,span*0.6);
-        await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','64k','-ac','2','-movflags','+faststart','discord.mp4']);
+        await run(engine,[...seek,'-i',input,...dur,'-vf',dvf,...x264,'-pass','2','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart','discord.mp4']);
         const mp4=await engine.readFile('discord.mp4');
         saveBlob(new Blob([mp4.buffer],{type:'video/mp4'}),stem+'_Discord.mp4');
         return sizeLine('Discord',mp4.byteLength,DISCORD_CAP);
