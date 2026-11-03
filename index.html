@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v38</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v39</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -629,6 +629,11 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="preset" value="faster"><span>Faster</span></label>
     </div>
     <p class="note">A faster pace finishes sooner but looks a little worse at the same file size. File sizes do not change. This touches the MP4 files (Discord and Socials); the 4chan WebM is not affected.</p>
+    <div class="aspect" role="radiogroup" aria-label="Encoding engine">
+      <label class="check"><input type="radio" name="engine" value="hardware" checked><span>Hardware · Speed</span></label>
+      <label class="check"><input type="radio" name="engine" value="cpu"><span>CPU · Quality</span></label>
+    </div>
+    <p class="note">Hardware runs one fast pass. CPU runs two passes and holds up better when bits are scarce. This governs every output. When Hardware is chosen and the device cannot do it, we fall back to CPU on our own.</p>
 <label>The Undercroft</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
@@ -931,6 +936,7 @@ const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked
 // "Normal" is the x264 default preset, medium — x264 has no preset literally called normal.
 const X264_PRESET_MAP={slow:'slow',normal:'medium',fast:'fast',faster:'faster'};
 const x264Preset=()=>X264_PRESET_MAP[document.querySelector('input[name=preset]:checked')?.value]||'medium';
+const engineChoice=()=>document.querySelector('input[name=engine]:checked')?.value||'hardware';
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 
 function socialTarget(o){
@@ -1935,7 +1941,7 @@ async function runBatch(allowRetry){
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       let res=null;
-      const canHw=await canHardwareEncodeOutput(o,s,segDuration());
+      const canHw=engineChoice()==='cpu'?false:await canHardwareEncodeOutput(o,s,segDuration());
       if(canHw){
         try{
           res=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
