@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v40</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v41</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -633,13 +633,14 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="engine" value="hardware" checked><span>Hardware · Speed</span></label>
       <label class="check"><input type="radio" name="engine" value="cpu"><span>CPU · Quality</span></label>
     </div>
-    <p class="note">4chan always runs CPU: its clips starve hardest, and the two-pass path pops far less there. Everything else follows this switch — Hardware is one fast pass, CPU is two slower passes. When Hardware is chosen and the device cannot do it, we fall back to CPU on our own.</p>
+    <p class="note">4chan always runs CPU: its clips starve hardest, and the two-pass path pops far less there — unless the Undercroft hardware test is checked. Everything else follows this switch — Hardware is one fast pass, CPU is two slower passes. When Hardware is chosen and the device cannot do it, we fall back to CPU on our own.</p>
 <label>The Undercroft</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
       <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
       <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
       <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Bind all chosen outputs to 3.97 MB mute VP9 WebM</small></span></label>
+      <label class="check"><input type="checkbox" id="chanHwTest"><span class="check-body"><span class="check-name name"><b>4chan hardware test</b></span><small class="check-sub sub">Route 4chan to hardware (variable bitrate, 20s keyframes) for comparison</small></span></label>
     </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
@@ -1724,8 +1725,9 @@ async function encodeHardware(o, tag, from, span, s, mode, d, stem){
       output:new mb.Output({format:outputFormat,target}),
       video:{
         codec:videoCodec,
-        quality:new mb.Quality({bitrate:videoKbps*1000,bitrateMode:'constant'}),
+        quality:isVp9?new mb.Quality({bitrate:videoKbps*1000}):new mb.Quality({bitrate:videoKbps*1000,bitrateMode:'constant'}),
         frameRate:30,
+        ...(isVp9?{keyFrameInterval:20}:{}),
         process:processFrame,
         processedWidth:tw,
         processedHeight:th
@@ -1953,7 +1955,8 @@ async function runBatch(allowRetry){
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       let res=null;
-      const canHw=(isAllChan||o.id==='chan'||engineChoice()==='cpu')?false:await canHardwareEncodeOutput(o,s,segDuration());
+      const chanRun=isAllChan||o.id==='chan';
+      const canHw=(engineChoice()==='cpu'||(chanRun&&!$('chanHwTest')?.checked))?false:await canHardwareEncodeOutput(o,s,segDuration());
       if(canHw){
         try{
           res=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
