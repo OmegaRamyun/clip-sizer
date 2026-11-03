@@ -133,7 +133,7 @@ button.secondary:active:not(:disabled){background:#191c25;transform:scale(0.97)}
 .warn{color:var(--warn)}
 .err{color:var(--err);font-size:0.9rem;margin:8px 0 0}
 #trimError,#outMsg{background:var(--err-dim);border:1px solid var(--err-line);border-radius:8px;padding:8px 12px}
-#trimError[hidden],#outMsg[hidden],#quickNote[hidden],#lengthWarn[hidden],#presetWarn[hidden],#aspectLabel[hidden],#aspectGroup[hidden],#aspectNote[hidden]{display:none !important}
+#trimError[hidden],#outMsg[hidden],#quickNote[hidden],#lengthWarn[hidden],#aspectLabel[hidden],#aspectGroup[hidden],#aspectNote[hidden]{display:none !important}
 label{display:block;margin:12px 0 6px;color:var(--muted);font-size:0.92rem;font-weight:600}
 input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);background:transparent;cursor:pointer}
 .field{min-width:0}
@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v36</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v37</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -626,10 +626,8 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="preset" value="normal" checked><span>Normal</span></label>
       <label class="check"><input type="radio" name="preset" value="fast"><span>Fast</span></label>
       <label class="check"><input type="radio" name="preset" value="faster"><span>Faster</span></label>
-      <label class="check"><input type="radio" name="preset" value="veryfast"><span>Veryfast</span></label>
     </div>
     <p class="note">A faster pace finishes sooner but looks a little worse at the same file size. File sizes do not change. This touches the MP4 files (Discord and Socials); the 4chan WebM is not affected.</p>
-    <p class="note warn" id="presetWarn" hidden>Veryfast is the rough-draft pace: faster, but visibly worse at these file sizes. Normal is the quality pick.</p>
 <label>The Undercroft</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
@@ -911,9 +909,8 @@ const SOCIAL_AUDIO_KBPS=128;
 const exportMode=()=>document.querySelector('input[name=exportMode]:checked')?.value==='socials'?'socials':'base';
 for(const r of document.querySelectorAll('input[name=exportMode]'))r.addEventListener('change',()=>{updateGo();if(duration)estimate();updateAspectVisibility()});
 $('allChan')?.addEventListener('change',()=>{updateGo();if(duration)estimate()});
-// Veryfast quality note + Socials-only aspect controls: the aspect block only
+// Socials-only aspect controls: the aspect block only
 // matters in Socials mode, so it stays hidden until then.
-for(const r of document.querySelectorAll('input[name=preset]'))r.addEventListener('change',()=>{$('presetWarn').hidden=document.querySelector('input[name=preset]:checked')?.value!=='veryfast'});
 const updateAspectVisibility=()=>{const show=exportMode()==='socials';for(const id of ['aspectLabel','aspectGroup','aspectNote'])$(id).hidden=!show;requestSocialPreviews()};
 updateAspectVisibility();
 for(const r of document.querySelectorAll('input[name=aspect]'))r.addEventListener('change',()=>{if(duration)estimate()});
@@ -931,7 +928,7 @@ const checkedOutputs=()=>{
 const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked')?.value;return v==='fill'||v==='blur'?v:'fit'};
 // x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Socials. Never VP9.
 // "Normal" is the x264 default preset, medium — x264 has no preset literally called normal.
-const X264_PRESET_MAP={normal:'medium',fast:'fast',faster:'faster',veryfast:'veryfast'};
+const X264_PRESET_MAP={normal:'medium',fast:'fast',faster:'faster'};
 const x264Preset=()=>X264_PRESET_MAP[document.querySelector('input[name=preset]:checked')?.value]||'medium';
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 
