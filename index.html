@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v35</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v36</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -635,7 +635,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
       <label class="check"><input type="checkbox" id="perfAllCores"><span>Use all cores</span></label>
       <label class="check"><input type="checkbox" id="perfFilterThreads"><span>Threaded filters</span></label>
-      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Bind all chosen outputs to 3.89 MB mute VP9 WebM</small></span></label>
+      <label class="check"><input type="checkbox" id="allChan" value="all-chan"><span class="check-body"><span class="check-name name"><b>All 4chan</b></span><small class="check-sub sub">Bind all chosen outputs to 3.97 MB mute VP9 WebM</small></span></label>
     </div>
     <p class="note err" id="outMsg" hidden></p>
     <ul id="outSummary" hidden></ul>
@@ -682,7 +682,7 @@ let engineState='idle'; // 'idle' | 'loading' | 'ready' | 'failed'
 let fileState='none';   // 'none' | 'picked' | 'verified' | 'stale'
 let trim={start:0,end:0,ok:true};
 let crop={x:0,y:0,w:0,h:0};
-const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=4.0e6, CHAN_CAP=3.89e6;
+const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=4.09e6, CHAN_CAP=4194304;
 const fmtBytes=n => n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1e3).toFixed(0)+' KB';
 const fmtTime=s => {const m=Math.floor(s/60), sec=Math.floor(s%60);return `${m}:${String(sec).padStart(2,'0')}`};
 const fmtTrim=s => {const t=Math.round(s*10)/10, m=Math.floor(t/60), sec=(t-m*60).toFixed(1);return `${m}:${sec.padStart(4,'0')}`};
@@ -886,7 +886,7 @@ function estimate() {
   renderOutputs(r);
   const parts=[];
   if($('allChan')?.checked){
-    parts.push(`All 4chan: all chosen outputs render as VP9 mute WebM at ~${chanVideo} kb/s under 4.0 MB.`);
+    parts.push(`All 4chan: all chosen outputs render as VP9 mute WebM at ~${chanVideo} kb/s around 3.97 MB.`);
   }else if(exportMode()==='socials'){
     parts.push(`The Socials triad (Horizontal, Vertical, Square).`);
   }else{
@@ -1113,7 +1113,7 @@ function renderOutputs(r){
     if(isAllChan){
       const [bw,bh]=[o.w||(o.id==='discord'?r.dw:r.cw),o.h||(o.id==='discord'?r.dh:r.ch)];
       const [cw2,ch2]=chanClamp(bw,bh);
-      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (the 4chan writ) — 4.0 MB target`;
+      txt=`${o.name}: ${cw2}×${ch2}, ~${r.chanVideo} kb/s VP9, no audio, two-pass (the 4chan writ) — 3.97 MB target`;
     }else if(o.id==='discord'){
       txt=`Discord: ${r.dw}×${r.dh}, ~${r.discordVideo} kb/s video + 128 kb/s audio, two-pass — ${L.text}`;
     }else if(o.id==='chan'){
