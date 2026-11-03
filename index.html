@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v37</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v38</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -623,7 +623,8 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     </div>
     <label>The Pace</label>
     <div class="aspect" role="radiogroup" aria-label="Encoding speed for MP4 outputs">
-      <label class="check"><input type="radio" name="preset" value="normal" checked><span>Normal</span></label>
+      <label class="check"><input type="radio" name="preset" value="slow" checked><span>Slow</span></label>
+      <label class="check"><input type="radio" name="preset" value="normal"><span>Normal</span></label>
       <label class="check"><input type="radio" name="preset" value="fast"><span>Fast</span></label>
       <label class="check"><input type="radio" name="preset" value="faster"><span>Faster</span></label>
     </div>
@@ -928,7 +929,7 @@ const checkedOutputs=()=>{
 const aspectMode=()=>{const v=document.querySelector('input[name=aspect]:checked')?.value;return v==='fill'||v==='blur'?v:'fit'};
 // x264 preset for the H.264 (MP4) outputs only: Discord (both passes) + Socials. Never VP9.
 // "Normal" is the x264 default preset, medium — x264 has no preset literally called normal.
-const X264_PRESET_MAP={normal:'medium',fast:'fast',faster:'faster'};
+const X264_PRESET_MAP={slow:'slow',normal:'medium',fast:'fast',faster:'faster'};
 const x264Preset=()=>X264_PRESET_MAP[document.querySelector('input[name=preset]:checked')?.value]||'medium';
 const evenRound=n=>Math.max(2,Math.round(n/2)*2);
 
@@ -1886,7 +1887,7 @@ async function runBatch(allowRetry){
       setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
       await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','2','-pass','2',outName]);
+      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','0','-pass','2',outName]);
       const webm=await engine.readFile(outName);
       return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:`${stem}_${o.file||o.name}.webm`,line:sizeLine(o.name,webm.byteLength,CHAN_CAP)};
     },
@@ -1910,7 +1911,7 @@ async function runBatch(allowRetry){
       setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
       await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','2','-pass','2','4chan.webm']);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','0','-pass','2','4chan.webm']);
       const webm=await engine.readFile('4chan.webm');
       return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:stem+'_4chan.webm',line:sizeLine('4chan',webm.byteLength,CHAN_CAP)};
     },
