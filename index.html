@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v39</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v40</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -633,7 +633,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
       <label class="check"><input type="radio" name="engine" value="hardware" checked><span>Hardware · Speed</span></label>
       <label class="check"><input type="radio" name="engine" value="cpu"><span>CPU · Quality</span></label>
     </div>
-    <p class="note">Hardware runs one fast pass. CPU runs two passes and holds up better when bits are scarce. This governs every output. When Hardware is chosen and the device cannot do it, we fall back to CPU on our own.</p>
+    <p class="note">4chan always runs CPU: its clips starve hardest, and the two-pass path pops far less there. Everything else follows this switch — Hardware is one fast pass, CPU is two slower passes. When Hardware is chosen and the device cannot do it, we fall back to CPU on our own.</p>
 <label>The Undercroft</label>
     <div class="checks" id="perfChecks">
       <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
@@ -1883,18 +1883,24 @@ async function runBatch(allowRetry){
       const [odw,odh]=chanClamp(s.dw,s.dh);
       const [otw,oth]=chanClamp(t.w||0,t.h||0);
       const tc={...t,w:otw,h:oth};
-      const vf=isDiscord?{complex:false,filter:`${cropF}scale=${odw}:${odh}:flags=${scaleFlags()},fps=30`}
-        :isChan?{complex:false,filter:`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`}
+      const vf=isDiscord?{complex:false,filter:`${cropF}scale=${odw}:${odh}:flags=${scaleFlags('lanczos')},fps=30`}
+        :isChan?{complex:false,filter:`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags('lanczos')},fps=30`}
         :socialVf(tc,s.crop,mode);
       const durV=vf.complex?['-t',segDuration().toFixed(3)]:dur;
       const passlog=`cpass_${o.file||o.id}`;
       const outName=`${o.file||o.id}.webm`;
-      const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',passlog,...thr,...fthr];
+      const mkVpx=kb=>['-c:v','libvpx-vp9','-b:v',kb+'k','-maxrate',Math.floor(kb*1.5)+'k','-bufsize',Math.max(100,kb*4)+'k','-passlogfile',passlog,...thr,...fthr];
       setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
-      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...mkVpx(s.chanVideo),'-deadline','good','-cpu-used','5','-g','600','-pass','1','-f','null','-']);
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-      await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...vpx,'-deadline','good','-cpu-used','0','-pass','2',outName]);
-      const webm=await engine.readFile(outName);
+      let kb=s.chanVideo, webm=null;
+      for(let r=0;;r++){
+        if(r)setPhase(`${tag} pass 2 retry ${r}…`,from+span*0.3,span*0.7);
+        await run(engine,[...seek,'-i',input,...durV,...vfArgs(vf),'-an',...mkVpx(kb),'-deadline','good','-cpu-used','0','-g','600','-pass','2',outName]);
+        webm=await engine.readFile(outName);
+        if(webm.byteLength<=CHAN_TARGET*0.97||r>=3)break;
+        kb=Math.max(70,Math.floor(kb*(CHAN_TARGET*0.97)/webm.byteLength*0.97));
+      }
       return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:`${stem}_${o.file||o.name}.webm`,line:sizeLine(o.name,webm.byteLength,CHAN_CAP)};
     },
     async discord(tag,from,span){
@@ -1912,13 +1918,19 @@ async function runBatch(allowRetry){
     async chan(tag,from,span){
       const thr=engineMT?['-threads',String(activeThreads())]:[];
       const fthr=$('perfFilterThreads')?.checked?['-filter_threads',String(activeThreads())]:[];
-      const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags()},fps=30`;
-      const vpx=['-c:v','libvpx-vp9','-b:v',s.chanVideo+'k','-maxrate',Math.floor(s.chanVideo*1.08)+'k','-bufsize',Math.max(100,s.chanVideo*2)+'k','-passlogfile',CLOG,...thr,...fthr];
+      const cvf=`${cropF}scale=${s.cw}:${s.ch}:flags=${scaleFlags('lanczos')},fps=30`;
+      const mkVpx=kb=>['-c:v','libvpx-vp9','-b:v',kb+'k','-maxrate',Math.floor(kb*1.5)+'k','-bufsize',Math.max(100,kb*4)+'k','-passlogfile',CLOG,...thr,...fthr];
       setPhase(`${tag} pass 1 of 2…`,from,span*0.3);
-      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','5','-pass','1','-f','null','-']);
+      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...mkVpx(s.chanVideo),'-deadline','good','-cpu-used','5','-g','600','-pass','1','-f','null','-']);
       setPhase(`${tag} pass 2 of 2…`,from+span*0.3,span*0.7);
-      await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...vpx,'-deadline','good','-cpu-used','0','-pass','2','4chan.webm']);
-      const webm=await engine.readFile('4chan.webm');
+      let kb=s.chanVideo, webm=null;
+      for(let r=0;;r++){
+        if(r)setPhase(`${tag} pass 2 retry ${r}…`,from+span*0.3,span*0.7);
+        await run(engine,[...seek,'-i',input,...dur,'-an','-vf',cvf,...mkVpx(kb),'-deadline','good','-cpu-used','0','-g','600','-pass','2','4chan.webm']);
+        webm=await engine.readFile('4chan.webm');
+        if(webm.byteLength<=CHAN_TARGET*0.97||r>=3)break;
+        kb=Math.max(70,Math.floor(kb*(CHAN_TARGET*0.97)/webm.byteLength*0.97));
+      }
       return {blob:new Blob([webm.buffer],{type:'video/webm'}),name:stem+'_4chan.webm',line:sizeLine('4chan',webm.byteLength,CHAN_CAP)};
     },
     async social(o,tag,from,span){
@@ -1941,7 +1953,7 @@ async function runBatch(allowRetry){
     for(const [i,o] of outs.entries()){
       const span=weight(o)/total, tag=`${o.name} ${i+1} of ${outs.length}`;
       let res=null;
-      const canHw=engineChoice()==='cpu'?false:await canHardwareEncodeOutput(o,s,segDuration());
+      const canHw=(isAllChan||o.id==='chan'||engineChoice()==='cpu')?false:await canHardwareEncodeOutput(o,s,segDuration());
       if(canHw){
         try{
           res=await encodeHardware(o,tag,from,span,s,mode,segDuration(),stem);
