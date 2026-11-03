@@ -510,7 +510,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + feature tags with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v42</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 2, 2026 · v43</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -685,6 +685,7 @@ const preview=$('preview'), overlay=$('overlay'), cropbox=$('cropbox'), stage=$(
 let selected=null, duration=0, width=0, height=0, ffmpeg=null, previewURL=null;
 let engineState='idle'; // 'idle' | 'loading' | 'ready' | 'failed'
 let fileState='none';   // 'none' | 'picked' | 'verified' | 'stale'
+let metaTimer=null;   // metadata-load watchdog: a pick that never resolves must fail loudly, not hang
 let trim={start:0,end:0,ok:true};
 let crop={x:0,y:0,w:0,h:0};
 const DISCORD_TARGET=19e6, DISCORD_CAP=19.9e6, CHAN_TARGET=4.09e6, CHAN_CAP=4194304;
@@ -1302,10 +1303,13 @@ fileInput.addEventListener('change',()=>{
   fileState=selected?'picked':'none';
   $('details').hidden=true;$('editor').hidden=true;$('tradeoff').hidden=true;$('links').hidden=true;$('links').innerHTML='';bar.style.width='0%';const pEl=$('mascotProgress');if(pEl)pEl.style.opacity='0';
   duration=0;$('quickNote').hidden=true;updateGo();
+  clearTimeout(metaTimer);
+  if(selected)status.textContent='Reading thy offering…';
   if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}
   if(!selected){preview.removeAttribute('src');status.textContent='Offer a video, and we begin.';updateGo();setMascotState('idle');return}
   previewURL=URL.createObjectURL(selected);
   preview.onloadedmetadata=()=>{
+    clearTimeout(metaTimer);
     duration=preview.duration;width=preview.videoWidth;height=preview.videoHeight;
     if(!Number.isFinite(duration)||!width||!height){fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error');return}
     $('duration').textContent=fmtTime(duration);
@@ -1323,7 +1327,16 @@ fileInput.addEventListener('change',()=>{
     setMascotState('file-chosen', true);
     requestSocialPreviews();
   };
-  preview.onerror=()=>{fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error')};
+  preview.onerror=()=>{clearTimeout(metaTimer);fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error')};
+  // Watchdog: some files never fire loadedmetadata OR error (undecodable
+  // container, stalled content provider). Without this the pick hangs
+  // forever with the panels hidden and no message — the "upload just
+  // didn't work" dead screen. Fail loudly so re-picking is possible.
+  metaTimer=setTimeout(()=>{
+    if(fileState==='picked'&&!preview.duration){
+      fileState='none';status.textContent='We could not read this offering. Offer another clip.';updateGo();setMascotState('error');
+    }
+  },15000);
   preview.src=previewURL;
 });
 
@@ -2041,11 +2054,21 @@ function hideUpdatePrompt(){
 }
 $('updateReload')?.addEventListener('click',()=>location.reload());
 $('updateDismiss')?.addEventListener('click',hideUpdatePrompt);
+function noteUpdateAvailable(){
+  // A new build has arrived. If nothing is at stake (no clip picked, no
+  // encode running), take it immediately — a stale page is how "another
+  // stale upload" happens. Otherwise show the prompt and let the pilgrim
+  // reload when ready. Dismissal sticks for this version only: the next
+  // build re-arms the prompt.
+  updateDismissed=false;
+  if(!selected&&!busy){location.reload();return;}
+  showUpdatePrompt();
+}
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   let hadController=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(hadController)showUpdatePrompt();
+    if(hadController)noteUpdateAvailable();
     hadController=true;
   });
   navigator.serviceWorker.register('./sw.js').then(reg=>{
@@ -2053,11 +2076,11 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
       if(!w)return;
       w.addEventListener('statechange',()=>{
         if(w.state==='installed'&&(navigator.serviceWorker.controller||hadController)){
-          showUpdatePrompt();
+          noteUpdateAvailable();
         }
       });
     };
-    if(reg.waiting&&(navigator.serviceWorker.controller||hadController))showUpdatePrompt();
+    if(reg.waiting&&(navigator.serviceWorker.controller||hadController))noteUpdateAvailable();
     if(reg.installing)trackWorker(reg.installing);
     reg.addEventListener('updatefound',()=>trackWorker(reg.installing));
     reg.update?.().catch(()=>{});
