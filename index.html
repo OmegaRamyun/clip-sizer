@@ -1416,12 +1416,13 @@ async function run(engine,args){
   if(typeof rc==='number'&&rc!==0)throw new Error(lastLog||('ffmpeg exited with code '+rc));
 }
 async function removeFiles(engine,files){for(const f of files){try{await engine.deleteFile(f)}catch{}}}
-function saveBlob(blob,name){
+function saveBlob(blob,name,auto){
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url;a.download=name;a.className='download';a.textContent=`Take ${name} (${fmtBytes(blob.size)})`;
   a.onclick=()=>setTimeout(()=>URL.revokeObjectURL(url),60000);
   $('links').appendChild(a);
   $('links').hidden=false;
+  if(auto)a.click();
 }
 let jszipModule=null, jszipLoading=null;
 async function loadJSZip(){
@@ -1986,7 +1987,7 @@ async function runBatch(allowRetry){
     }else if(madeOutputs.length>1){
       try{
         const zipBlob=await buildZip(madeOutputs,stem);
-        saveBlob(zipBlob,`${stem}_clips.zip`);
+        saveBlob(zipBlob,`${stem}_clips.zip`,true);
       }catch(zipErr){
         console.warn('[clip-sizer] zip creation failed, falling back to per-output links:',zipErr?.message||zipErr);
         for(const item of madeOutputs){
