@@ -1822,7 +1822,7 @@ async function runBatch(allowRetry){
   const fileStem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
   const clipStem=(($('clipName')?.value||'').trim().replace(/[^a-z0-9 _-]+/gi,'').replace(/\s+/g,'_').slice(0,50))||fileStem;
   const stamp=(()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;})();
-  const stem=`${clipStem}_${stamp}`;
+  const stem=`${clipStem}_${stamp}_CompressionProtocol`;
   phaseDur=Math.max(segDuration(),0.1);
   const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
   const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
