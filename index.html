@@ -603,6 +603,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   </section>
   <section class="panel" id="outputs">
     <h2>The Offerings</h2>
+    <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — written into file names, e.g. Protocol Protocol"></div>
     <div class="aspect" role="radiogroup" aria-label="Export mode" id="outChecks">
       <label class="check"><input type="radio" name="exportMode" value="base" checked><span class="check-body"><span class="check-name name"><b>Discord + 4chan</b></span><small class="check-sub sub">The default rite · Best under a minute</small></span></label>
       <label class="check"><input type="radio" name="exportMode" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">Three forms · X permits 2:20</small></span></label>
@@ -626,7 +627,6 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
     <ul id="outSummary" hidden></ul>
     <details id="moreDetails">
       <summary>Details</summary>
-      <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — written into file names, e.g. Protocol Protocol"></div>
       <label>The Undercroft</label>
       <div class="checks" id="perfChecks">
         <label class="check"><input type="checkbox" id="perfExperimental"><span>Experimental speed</span></label>
