@@ -529,7 +529,7 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   <h1>Compression Protocol</h1>
   <p>We dissolve thy clip and bind it anew: small enough for Discord and 4chan, with Horizontal, Vertical, and Square forms for every other feed. Solve et coagula. Nothing leaves thy device — all work is done here, in thy browser.</p>
   <!-- Release build stamp: update date + cache version with each release -->
-  <div class="stamp build-stamp" id="stamp">Build Nov 5, 2026 · v44</div>
+  <div class="stamp build-stamp" id="stamp">Build Nov 9, 2026 · v45</div>
   <div class="stamp mode-stamp" id="modeIndicator" hidden></div>
   <div class="panel" id="updatePrompt" hidden>
     <div class="update-bar">
@@ -603,7 +603,8 @@ button#cropEdit[aria-pressed=true]{background:var(--accent) !important;color:var
   </section>
   <section class="panel" id="outputs">
     <h2>The Offerings</h2>
-    <div class="field"><label for="clipName">Clip name</label><input id="clipName" type="text" placeholder="Optional — written into file names, e.g. Protocol Protocol"></div>
+    <div class="field"><label for="clipName">Project Name</label><input id="clipName" type="text" placeholder="Optional — prefixes file names, e.g. Protocol Protocol"></div>
+    <div class="field"><label for="nameAppend">Append</label><input id="nameAppend" type="text" value="CompressionProtocol" placeholder="Optional — goes after the date stamp"></div>
     <div class="aspect" role="radiogroup" aria-label="Export mode" id="outChecks">
       <label class="check"><input type="radio" name="exportMode" value="base" checked><span class="check-body"><span class="check-name name"><b>Discord + 4chan</b></span><small class="check-sub sub">The default rite · Best under a minute</small></span></label>
       <label class="check"><input type="radio" name="exportMode" value="socials"><span class="check-body"><span class="check-name name"><b>Socials</b></span><small class="check-sub sub">Three forms · X permits 2:20</small></span></label>
@@ -1821,9 +1822,12 @@ async function runBatch(allowRetry){
   };
 
   const fileStem=selected.name.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'video';
-  const clipStem=(($('clipName')?.value||'').trim().replace(/[^a-z0-9 _-]+/gi,'').replace(/\s+/g,'_').slice(0,50))||fileStem;
+  const cleanName=v=>(v||'').trim().replace(/[^a-z0-9 _-]+/gi,'').replace(/\s+/g,'_').slice(0,50);
+  // Project Name IS the prefix: it goes in front, the clip's own file stem stays the name.
+  const namePrefix=cleanName($('clipName')?.value);
+  const nameAppend=cleanName($('nameAppend')?.value);
   const stamp=(()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;})();
-  const stem=`${clipStem}_${stamp}_CompressionProtocol`;
+  const stem=[namePrefix,fileStem,stamp,nameAppend].filter(Boolean).join('_');
   phaseDur=Math.max(segDuration(),0.1);
   const seek=trim.start>0?['-ss',trim.start.toFixed(3)]:[];
   const dur=trim.end<duration-0.05||trim.start>0?['-t',segDuration().toFixed(3)]:[];
